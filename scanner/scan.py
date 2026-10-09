@@ -1,7 +1,9 @@
 """Scan quotidien du Radar : lit la presse récente (Google News) pour chaque compte
 et ajoute les nouveaux signaux dans la base Supabase. Aucune donnée LinkedIn n'est lue.
 
-Variables d'environnement : SUPABASE_URL, SUPABASE_SERVICE_KEY, et en option DAYS (défaut 3).
+Variables d'environnement : SUPABASE_URL, SUPABASE_SERVICE_KEY, et en option DAYS (défaut 3),
+ANTHROPIC_API_KEY (qualification par l'IA), CLAUDE_MODEL (défaut claude-haiku-5-5) et BACKFILL
+(nombre d'articles déjà en base à faire qualifier par l'IA, défaut 0).
 """
 import hashlib, html, json, os, re, sys, time, unicodedata
 import urllib.error, urllib.parse, urllib.request
@@ -72,8 +74,14 @@ def docs(collection):
         start += 1000
 
 
-def news(name):
-    q = urllib.parse.quote(f'"{name}" when:{DAYS}d')
+def upsert(rows, merge=False):
+    for k in range(0, len(rows), 200):
+        api("POST", "docs?on_conflict=collection,id", rows[k:k + 200],
+            prefer="resolution=merge-duplicates" if merge else "resolution=ignore-duplicates")
+
+
+def news(name, days=None, raw=False):
+    q = urllib.parse.quote(name if raw else f'"{name}" when:{days or DAYS}d')
     url = f"https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr"
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
@@ -88,15 +96,55 @@ def news(name):
             d = parsedate_to_datetime(it.findtext("pubDate"))
         except Exception:
             continue
+        desc = re.sub(r"<[^>]+>", " ", html.unescape(it.findtext("description") or ""))
         yield {"title": title.strip(), "url": it.findtext("link") or "", "date": d.astimezone(timezone.utc),
+               "summary": re.sub(r"\s+", " ", desc).strip()[:400],
                "source": source or "", "source_url": src.get("url") if src is not None else ""}
 
 
+CAT = {"dirigeant": "dirigeant", "fusion": "fusion", "reorg": "reorg", "plan": "plan", "travail": "travail"}
+NOMINATION = re.compile(r"\b(nomme|nommee|nomination|rejoint|prend la (tete|direction)|devient|succede|arrive)\b")
+EVENT_QUERIES = [
+    '"ANDRH" (conférence OR rencontre OR atelier) when:14d',
+    '"club des DRH" OR "cercle des DRH" when:14d',
+    '"appel à intervenants" (management OR RH OR organisation OR agile) when:30d',
+    '"rencontres RH" OR "université RH" OR "matinale RH" when:14d',
+    '(APM OR CJD OR "MEDEF") rencontre dirigeants management when:14d',
+]
+
+
+def slug(s):
+    return re.sub(r"[^a-z0-9]+", "-", norm(s)).strip("-")[:50]
+
+
+def relations_by_account(accounts):
+    """Relations de l'équipe rangées par compte (même règle de rapprochement que la page, en plus simple)."""
+    names = {a["id"]: norm(a["data"].get("name", "")) for a in accounts}
+    out = {}
+    for chunk in docs("relations"):
+        member = chunk["data"].get("member", "")
+        for r in chunk["data"].get("rows", []):
+            comp = norm(r[3] if len(r) > 3 else "")
+            if not comp:
+                continue
+            for aid, n in names.items():
+                if len(n) >= 3 and (comp == n or re.search(r"(^| )" + re.escape(n) + r"( |$)", comp)):
+                    out.setdefault(aid, []).append({"member": member, "name": f"{r[0]} {r[1]}".strip(),
+                                                    "position": r[4] if len(r) > 4 else ""})
+                    break
+    return out
+
+
 def main():
+    import qualify
     since = datetime.now(timezone.utc) - timedelta(days=DAYS)
-    accounts = [a for a in docs("accounts") if (a["data"].get("status") or "") != "ecarte"]
-    seen = {norm(s["data"].get("title", ""))[:90] for s in docs("signals")}
+    all_accounts = docs("accounts")
+    accounts = [a for a in all_accounts if (a["data"].get("status") or "") != "ecarte"]
+    old = docs("signals")
+    seen = {norm(s["data"].get("title", ""))[:90] for s in old}
     new, errors = [], 0
+
+    # 1. La presse des entreprises suivies
     for a in accounts:
         name = a["data"].get("name", "")
         if not name:
@@ -113,19 +161,100 @@ def main():
             if it["date"] < since or first not in t or t[:90] in seen:
                 continue
             rule = next((r for r in RULES if re.search(r[0], t)), None)
-            if not rule:
+            if not rule and not qualify.enabled():
                 continue
             seen.add(t[:90])
-            why, action = TEXT[rule[2]]
+            why, action = TEXT[rule[2]] if rule else ("", "")
             sid = "a" + hashlib.sha1(it["title"].encode()).hexdigest()[:12]
             new.append({"collection": "signals", "id": sid, "data": {
-                "company": name, "title": it["title"], "url": it["url"], "source": it["source"],
-                "source_url": it["source_url"], "date": it["date"].strftime("%Y-%m-%d"),
-                "strength": rule[1], "why": why, "action": action, "status": "new", "owner": "", "auto": True}})
+                "company": name, "account_id": a["id"], "title": it["title"], "summary": it["summary"],
+                "url": it["url"], "source": it["source"], "source_url": it["source_url"],
+                "date": it["date"].strftime("%Y-%m-%d"), "strength": rule[1] if rule else "faible",
+                "category": rule[2] if rule else "", "why": why, "action": action,
+                "status": "new", "owner": "", "auto": True}})
         time.sleep(1)
+
+    # 2. Les anciens contacts clients qui changent de poste
+    for p in docs("alumni"):
+        person, before = p["data"].get("name", ""), p["data"].get("company", "")
+        if not person:
+            continue
+        try:
+            items = list(news(person, days=max(DAYS, 7)))
+        except Exception as e:
+            print("presse indisponible pour", person, "-", e, file=sys.stderr)
+            continue
+        for it in items:
+            t = norm(it["title"])
+            if norm(person).split()[-1] not in t or not NOMINATION.search(t) or t[:90] in seen:
+                continue
+            seen.add(t[:90])
+            sid = "p" + hashlib.sha1(it["title"].encode()).hexdigest()[:12]
+            new.append({"collection": "signals", "id": sid, "data": {
+                "kind": "alumni", "person": person, "previous_company": before, "company": before or person,
+                "title": it["title"], "summary": it["summary"], "url": it["url"], "source": it["source"],
+                "source_url": it["source_url"], "date": it["date"].strftime("%Y-%m-%d"), "strength": "fort",
+                "category": "dirigeant", "status": "new", "owner": "", "auto": True}})
+        time.sleep(1)
+
+    # 3. Qualification par l'IA (nouveaux articles, et en option ceux déjà en base)
+    acc_by_id = {a["id"]: a["data"] for a in all_accounts}
+    acc_by_name = {norm(a["data"].get("name", "")): a for a in all_accounts}
+    rels = relations_by_account(all_accounts) if qualify.enabled() else {}
+    feedback = [s["data"] for s in old if s["data"].get("feedback") == "no"][-15:]
+    todo = list(new)
+    backfill = int(os.environ.get("BACKFILL", "0") or 0)
+    if backfill and qualify.enabled():
+        recent = (datetime.now(timezone.utc) - timedelta(days=180)).strftime("%Y-%m-%d")
+        old_todo = [{"collection": "signals", "id": s["id"], "data": s["data"]} for s in old
+                    if not (s["data"].get("ai") or {}).get("verdict") and s["data"].get("status") != "dropped"
+                    and str(s["data"].get("date", "")) >= recent]
+        old_todo.sort(key=lambda r: str(r["data"].get("date", "")), reverse=True)
+        todo += old_todo[:backfill]
+    judged = 0
+    for row in todo:
+        d = row["data"]
+        acc = acc_by_id.get(d.get("account_id")) or (acc_by_name.get(norm(d.get("company", ""))) or {}).get("data") or {}
+        aid = d.get("account_id") or (acc_by_name.get(norm(d.get("company", ""))) or {}).get("id")
+        verdict = qualify.judge(d, acc, rels.get(aid, []), feedback)
+        if verdict:
+            d["ai"] = verdict
+            judged += 1
+    # Sans l'IA, on ne garde que ce que les règles ont reconnu ; avec, on garde tout (l'IA a classé le bruit en « no »)
     if new:
-        api("POST", "docs?on_conflict=collection,id", new, prefer="resolution=ignore-duplicates")
-    print(f"::notice::{len(accounts)} comptes lus, {len(new)} nouveaux signaux, {errors} erreurs de presse.")
+        upsert(new)
+    old_rows = [r for r in todo if r not in new]
+    if old_rows:
+        upsert(old_rows, merge=True)
+
+    # 4. Événements : la liste de départ, puis ceux repérés dans la presse
+    events = docs("events")
+    seed_path = os.path.join(os.path.dirname(__file__), "events_seed.json")
+    if os.path.exists(seed_path):
+        seed = json.load(open(seed_path, encoding="utf-8"))
+        upsert([{"collection": "events", "id": e["id"], "data": {k: v for k, v in e.items() if k != "id"} | {"status": "a_contacter", "source_kind": "liste"}}
+                for e in seed])
+    found = 0
+    if qualify.enabled():
+        known = {slug(e["data"].get("name", "")) for e in events}
+        for q in EVENT_QUERIES:
+            try:
+                items = list(news(q, raw=True))
+            except Exception as e:
+                print("presse indisponible pour", q, "-", e, file=sys.stderr)
+                continue
+            for it in items[:15]:
+                ev = qualify.event(it)
+                if not ev or slug(ev["name"]) in known:
+                    continue
+                known.add(slug(ev["name"]))
+                upsert([{"collection": "events", "id": slug(ev["name"]) + "-" + (ev.get("date") or "x"),
+                         "data": ev | {"status": "a_contacter", "source_kind": "presse", "added": datetime.now(timezone.utc).strftime("%Y-%m-%d")}}])
+                found += 1
+            time.sleep(1)
+
+    print(f"::notice::{len(accounts)} comptes lus, {len(new)} nouveaux articles, {judged} qualifiés par l'IA, "
+          f"{found} événements repérés, {errors} erreurs de presse.")
     if errors > len(accounts) / 2:
         fail("Trop d'erreurs : Google News a peut-être bloqué les requêtes.")
 
