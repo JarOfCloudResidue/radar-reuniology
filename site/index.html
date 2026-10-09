@@ -349,7 +349,7 @@ function sigPts(s){const a=ageDays(s.date),k=a<=30?1:a<=90?.75:a<=180?.45:0, ai=
 function accFor(name){const n=norm(name);return accounts.find(a=>norm(a.name)===n)||null}
 function buildOpps(){
   const by=new Map();
-  for(const s of signals){if(s.status==="dropped"||s.kind==="alumni")continue;const a=s.account_id?accounts.find(x=>x.id===s.account_id):accFor(s.company);if(!a)continue;
+  for(const s of signals){if(s.status==="dropped"||s.kind==="alumni"||(s.auto&&!s.category&&!(s.ai&&s.ai.verdict)&&!s.why))continue;const a=s.account_id?accounts.find(x=>x.id===s.account_id):accFor(s.company);if(!a)continue;
     if(!by.has(a.id))by.set(a.id,[]);by.get(a.id).push(s)}
   const out=[];
   for(const a of accounts){

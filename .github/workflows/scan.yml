@@ -25,6 +25,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           CLAUDE_MODEL: claude-haiku-5-5
           BACKFILL: ${{ inputs.backfill || '0' }}
           DAYS: ${{ inputs.days || '3' }}

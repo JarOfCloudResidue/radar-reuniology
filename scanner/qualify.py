@@ -19,7 +19,8 @@ def client():
     global _client
     if _client is None:
         import anthropic
-        _client = anthropic.Anthropic()
+        ws = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+        _client = anthropic.Anthropic(default_headers={"anthropic-workspace-id": ws} if ws else None)
     return _client
 
 

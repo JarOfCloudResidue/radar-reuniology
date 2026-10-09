@@ -220,7 +220,8 @@ def main():
         if verdict:
             d["ai"] = verdict
             judged += 1
-    # Sans l'IA, on ne garde que ce que les règles ont reconnu ; avec, on garde tout (l'IA a classé le bruit en « no »)
+    # On ne garde que ce que les règles ont reconnu ou que l'IA a jugé (si elle n'a pas répondu, le bruit est écarté)
+    new = [r for r in new if r["data"].get("category") or r["data"].get("ai") or r["data"].get("kind") == "alumni"]
     if new:
         upsert(new)
     old_rows = [r for r in todo if r not in new]
