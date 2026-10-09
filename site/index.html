@@ -216,7 +216,7 @@ dialog.small::backdrop{background:rgb(0 0 0 / .4)}
     <details class="sect">
       <summary>Comment une opportunité est choisie</summary>
       <p class="hint">Une entreprise devient une opportunité quand trois choses se rencontrent : <strong>un bon profil</strong> (secteur et taille proches de vos clients), <strong>un déclencheur récent</strong> (nouveau dirigeant, fusion, réorganisation, plan stratégique, changement des modes de travail) et <strong>une porte d'entrée</strong> (une relation de l'équipe, un client existant ou un décideur nommé).</p>
-      <p class="hint">Chaque matin, l'IA relit les nouveaux articles et écarte le bruit (résultats financiers, faits divers, homonymes). Ce que tu marques « Pas pertinent » l'aide à mieux trier.</p>
+      <p class="hint">Chaque matin, le scan lit la presse des entreprises suivies et ne garde que les articles qui parlent d'un déclencheur.</p>
     </details>
   </div>
 </dialog>
@@ -431,7 +431,7 @@ function oppCard(o){
     if(st==="en_cours")act.append(el("button",{class:"btn primary",onclick:()=>set({opp_status:"rdv"})},"Rendez-vous obtenu"));
     if(st==="rdv")act.append(el("button",{class:"btn primary",onclick:()=>set({opp_status:"gagne"})},"Mission gagnée"));
     if(st)act.append(el("button",{class:"btn",onclick:()=>openNote(o)},"Noter"));
-    if(st!=="ecarte")act.append(el("button",{class:"btn",onclick:()=>{const why=prompt("Pourquoi ce n'est pas pertinent ? (ça aide l'IA à mieux trier)","");if(why===null)return;
+    if(st!=="ecarte")act.append(el("button",{class:"btn",onclick:()=>{const why=prompt("Pourquoi ce n'est pas pertinent ?","");if(why===null)return;
       set({opp_status:"ecarte",opp_reason:why.trim(),opp_log:[...log,{date:today(),text:"Écartée"+(why.trim()?" : "+why.trim():"")}]});
       if(s&&!o.alum)upd("signals",s.id,{feedback:"no",feedback_reason:why.trim()})}},"Pas pertinent"));
     else act.append(el("button",{class:"btn",onclick:()=>set({opp_status:""})},"Remettre"));
@@ -584,7 +584,7 @@ wire();renderAll();
   try{me=user?await user.id():null}catch{}
   let t=null;const later=()=>{clearTimeout(t);t=setTimeout(renderAll,60)};
   db.collection("accounts").limit(2000).onSnapshot(s=>{accounts=s.docs.map(d=>({id:d.id,...d.data()}));buildRelations();later()},err);
-  db.collection("signals").limit(5000).onSnapshot(s=>{signals=s.docs.map(d=>({id:d.id,...d.data()}));later()},err);
+  db.collection("signals").limit(5000).onSnapshot(s=>{signals=s.docs.map(d=>{const x={id:d.id,...d.data()};delete x.ai;return x});later()},err);
   db.collection("events").limit(1000).onSnapshot(s=>{events=s.docs.map(d=>({id:d.id,...d.data()}));later()},err);
   db.collection("alumni").limit(500).onSnapshot(s=>{alumni=s.docs.map(d=>({id:d.id,...d.data()}));later()},err);
   db.collection("relations").limit(300).onSnapshot(s=>{relChunks=s.docs.map(d=>({id:d.id,...d.data()}));buildRelations();later()},err);
