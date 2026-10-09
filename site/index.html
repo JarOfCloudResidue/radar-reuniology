@@ -71,7 +71,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .steps{margin:0;padding-left:20px;display:grid;gap:4px}
 .msg{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px;white-space:pre-wrap;margin:0;font-size:.92rem}
 .actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-a{color:var(--accent)}
+a{color:var(--accent)} a.btn{text-decoration:none;color:inherit;display:inline-block}
 .actions a,.lnk{color:var(--accent);font-weight:600;font-size:.9rem}
 .empty{border:1px dashed var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted);display:grid;gap:6px;justify-items:center}
 .empty strong{color:var(--fg);font-family:var(--f-display);font-size:1.05rem}
@@ -86,6 +86,17 @@ form{display:grid;gap:8px}
 .row>*{flex:1 1 140px;min-width:0}
 .date{font:600 .95rem var(--f-display);text-align:center;min-width:64px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--bg)}
 .date small{display:block;font:500 .7rem var(--f-mono);color:var(--muted);text-transform:uppercase}
+/* compact rows */
+.rc{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;min-width:0}
+.rc.hot{border-left-color:var(--strong)} .rc.warm{border-left-color:var(--mid)} .rc.done{opacity:.7}
+.rc>details>summary{list-style:none;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 14px;cursor:pointer;align-items:center}
+.rc>details>summary::-webkit-details-marker{display:none}
+.rc .t1{font:600 1.02rem/1.25 var(--f-display);overflow-wrap:anywhere}
+.rc .t2{color:var(--muted);font-size:.88rem;font-weight:400;font-family:var(--f-body,inherit);overflow-wrap:anywhere;grid-column:1/-1}
+.rc .body{padding:0 14px 12px;display:grid;gap:10px}
+.rc .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 14px 10px}
+.rc details[open]>summary .chev{transform:rotate(90deg)}
+.chev{display:inline-block;margin-right:6px;color:var(--muted);transition:transform .15s}
 /* settings drawer */
 dialog.drawer{margin:0 0 0 auto;height:100%;max-height:100%;width:min(560px,100%);border:0;border-left:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--fg);padding:0}
 dialog.drawer::backdrop{background:rgb(0 0 0 / .35)}
@@ -110,7 +121,7 @@ dialog.small::backdrop{background:rgb(0 0 0 / .4)}
   <header>
     <div>
       <h1>Radar Reuniology</h1>
-      <p class="hint" id="sub">Les entreprises à appeler maintenant, et les événements où rencontrer vos clients.</p>
+      <p class="hint" id="sub">Les 5 opportunités de la semaine et les prochains événements.</p>
     </div>
     <div class="hrow">
       <div class="switch" role="tablist">
@@ -128,9 +139,8 @@ dialog.small::backdrop{background:rgb(0 0 0 / .4)}
   <section id="view-opps" class="list" aria-label="Opportunités">
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Filtre" id="opp-filter">
-        <button aria-pressed="true" data-f="todo">À traiter</button>
+        <button aria-pressed="true" data-f="todo">Cette semaine</button>
         <button aria-pressed="false" data-f="doing">En cours</button>
-        <button aria-pressed="false" data-f="watch">À surveiller</button>
         <button aria-pressed="false" data-f="archive">Archivées</button>
       </div>
       <span class="meta" id="opp-note"></span>
@@ -141,7 +151,7 @@ dialog.small::backdrop{background:rgb(0 0 0 / .4)}
   <section id="view-events" class="list" aria-label="Événements" hidden>
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Filtre" id="ev-filter">
-        <button aria-pressed="true" data-f="todo">À contacter</button>
+        <button aria-pressed="true" data-f="todo">Prochains</button>
         <button aria-pressed="false" data-f="doing">En cours</button>
         <button aria-pressed="false" data-f="archive">Archivés</button>
       </div>
@@ -396,59 +406,61 @@ function plan(o){
   const intro=o.tgt[0]&&!o.alum?o.tgt[0].member+", tu connais "+o.tgt[0].first+" "+o.tgt[0].last+" chez "+a.name+". "+why+" Peux-tu lui proposer un échange avec nous ? Voici un message que tu peux lui transférer :\n\n"+msg:null;
   return{label:ai.label||label,why:ai.why_now||why,target,targetTxt,path:ai.path||path,steps,msg,intro};
 }
+function colleague(o){const r=o.tgt[0]||o.rel[0];if(o.alum)return"Louis";if(r&&r.member!=="Vincent")return r.member;if(o.a.kind==="client")return"Louis";return null}
+function pointText(o,p,who){const a=o.a,s=o.best,r=o.tgt[0]||o.rel[0];
+  return[(who?who+", ":"")+"une opportunité chez "+a.name+" pour laquelle tu es la meilleure porte d'entrée.","",
+    "Pourquoi maintenant : "+p.why+(s?" ("+String(s.title||"").slice(0,140)+", "+fmt(s.date)+")":""),s&&safeUrl(s.url)?s.url:null,
+    "Qui viser : "+p.targetTxt,
+    r&&r.member===who?"Ton lien : tu connais "+r.first+" "+r.last+(r.position?" ("+r.position+")":"")+".":"Par qui : "+p.path,
+    "","Ce que je te propose : "+(r&&r.member===who?"envoyer ce message à "+first(r.first+" "+r.last)+", ou me présenter.":"me dire si tu peux faire le lien."),"",
+    "Message prêt :","",p.msg].filter(x=>x!==null).join("\n")}
 function oppCard(o){
-  const a=o.a,s=o.best,p=plan(o),st=a.opp_status||"";
+  const a=o.a,s=o.best,p=plan(o),st=a.opp_status||"",who=colleague(o);
   const lvl=o.score>=75?"hot":o.score>=55?"warm":"cool";
-  const card=el("article",{class:"card "+lvl+(st==="ecarte"||st==="gagne"?" done":"")},
-    el("div",{class:"top"},el("span",{class:"who"},a.name),
-      el("span",{class:"actions"},a.kind==="client"?el("span",{class:"pill ok"},"client"):o.alum?el("span",{class:"pill ok"},"ancien contact"):null,
-        el("span",{class:"pill "+lvl},p.label),st?el("span",{class:"pill acc"},OPP_ST[st]):null,el("span",{class:"pill "+lvl,title:"profil "+o.fit+" · déclencheur "+o.trig+" · porte d'entrée "+o.door},o.score+" / 100"))));
-  const facts=el("dl",{class:"facts"});
-  const add=(k,...v)=>facts.append(el("dt",{},k),el("dd",{},...v));
-  if(s)add("Pourquoi",el("span",{},p.why+" "),el("span",{class:"meta"},"("+ago(s.date)+") "),link(s.url,String(s.title||"Article").slice(0,140)));
-  add("Qui",p.target?el("span",{},el("strong",{},p.target.name),p.target.role?", "+p.target.role:""):el("span",{},p.targetTxt),
-    " ",el("a",{href:p.target&&safeUrl(p.target.url)?p.target.url:liPeople((p.target?p.target.name+" ":"")+a.name+(p.target?"":" DRH OR \"directeur général\"")),target:"_blank",rel:"noopener",class:"lnk"},"LinkedIn"));
-  add("Par qui",p.path);
-  card.append(facts,el("div",{},el("div",{class:"label"},"Plan d'attaque"),el("ol",{class:"steps"},...p.steps.map(t=>el("li",{},t)))));
-  const msgBox=el("details",{},el("summary",{},p.intro?"Messages prêts (intro et direct)":"Message prêt à envoyer"),
-    p.intro?el("p",{class:"label",style:"margin:8px 0 4px"},"À envoyer à "+o.tgt[0].member):null,
-    p.intro?el("pre",{class:"msg"},p.intro):null,
-    p.intro?el("button",{class:"btn",style:"margin-top:6px",onclick:e=>copy(p.intro,e.currentTarget)},"Copier le message d'intro"):null,
-    el("p",{class:"label",style:"margin:8px 0 4px"},"À envoyer à "+(p.target?first(p.target.name):"la personne")),
-    el("pre",{class:"msg"},p.msg),el("button",{class:"btn",style:"margin-top:6px",onclick:e=>copy(p.msg,e.currentTarget)},"Copier le message"));
-  card.append(msgBox);
-  const others=o.sigs.slice(1,6);
-  if(others.length||o.rel.length>1){const d=el("details",{},el("summary",{class:"hint"},[others.length?others.length+" autre"+(others.length>1?"s":"")+" signal"+(others.length>1?"s":""):null,o.rel.length?o.rel.length+" relation"+(o.rel.length>1?"s":"")+" de l'équipe":null].filter(Boolean).join(" · ")));
-    if(others.length)d.append(el("ul",{class:"log"},...others.map(x=>el("li",{},el("span",{class:"meta"},fmt(x.date)+" "),link(x.url,x.title)||x.title))));
-    if(o.rel.length)d.append(el("ul",{class:"log"},...o.rel.slice(0,12).map(r=>el("li",{},r.member+" → ",el("strong",{},r.first+" "+r.last),r.position?", "+r.position+" ":" ",link(r.url,"profil")))));
-    card.append(d)}
+  const r=o.tgt[0]||o.rel[0];
+  const door=o.alum?"ancien contact client":r?r.member+" → "+r.first+" "+r.last+(r.position?", "+r.position.slice(0,50):""):a.kind==="client"?"client : passer par Louis":"approche directe";
+  const set=f=>o.alum?upd("signals",o.alum.id,f):upd("accounts",a.id,f);
   const log=a.opp_log||[];
-  if(a.opp_next||log.length)card.append(el("div",{},a.opp_next?el("p",{class:"hint",style:"color:var(--fg)"},"Prochaine action : "+a.opp_next+(a.opp_date?" · "+fmt(a.opp_date):"")):null,
-    log.length?el("ul",{class:"log"},...log.slice(-4).map(l=>el("li",{},el("span",{class:"meta"},fmt(l.date)+" "),l.text))):null));
-  if(db){const act=el("div",{class:"actions"});
-    const set=f=>o.alum?upd("signals",o.alum.id,f):upd("accounts",a.id,f);
-    if(!st)act.append(el("button",{class:"btn primary",onclick:()=>{set({opp_status:"en_cours",opp_since:today(),opp_next:p.steps[0],opp_date:today()})}},"Je m'en occupe"));
-    if(st==="en_cours")act.append(el("button",{class:"btn primary",onclick:()=>set({opp_status:"rdv"})},"Rendez-vous obtenu"));
-    if(st==="rdv")act.append(el("button",{class:"btn primary",onclick:()=>set({opp_status:"gagne"})},"Mission gagnée"));
-    if(st)act.append(el("button",{class:"btn",onclick:()=>openNote(o)},"Noter"));
-    if(st!=="ecarte")act.append(el("button",{class:"btn",onclick:()=>{const why=prompt("Pourquoi ce n'est pas pertinent ?","");if(why===null)return;
+  const body=el("div",{class:"body"});
+  const facts=el("dl",{class:"facts"});const add=(k,...v)=>facts.append(el("dt",{},k),el("dd",{},...v));
+  if(s)add("Pourquoi",p.why+" ",link(s.url,String(s.title||"Article").slice(0,120)),el("span",{class:"meta"}," "+ago(s.date)));
+  add("Qui",p.target?el("strong",{},p.target.name):p.targetTxt,p.target&&p.target.role?", "+p.target.role:""," ",
+    el("a",{href:liPeople((p.target?p.target.name+" ":"")+a.name+(p.target?"":" DRH OR \"directeur général\"")),target:"_blank",rel:"noopener",class:"lnk"},"LinkedIn"));
+  add("Plan",el("ol",{class:"steps"},...p.steps.map(t=>el("li",{},t))));
+  body.append(facts,el("pre",{class:"msg"},p.msg));
+  if(a.opp_next||log.length)body.append(el("ul",{class:"log"},a.opp_next?el("li",{},"Prochaine action : "+a.opp_next+(a.opp_date?" · "+fmt(a.opp_date):"")):null,...log.slice(-3).map(l=>el("li",{},el("span",{class:"meta"},fmt(l.date)+" "),l.text))));
+  const bar=el("div",{class:"bar"});
+  if(db){
+    const sent=via=>{if(!st)set({opp_status:"en_cours",opp_since:today(),opp_next:"Attendre le retour de "+who,opp_date:new Date(Date.now()+5*DAY).toISOString().slice(0,10),opp_log:[...log,{date:today(),text:"Point envoyé à "+who+" ("+via+")"}]})};
+    if(who){const txt=pointText(o,p,who);
+      bar.append(el("a",{class:"btn primary",href:"mailto:?subject="+encodeURIComponent("Opportunité "+a.name)+"&body="+encodeURIComponent(txt),onclick:()=>sent("email")},"Envoyer à "+who),
+        el("a",{class:"btn",href:"https://wa.me/?text="+encodeURIComponent(txt),target:"_blank",rel:"noopener",onclick:()=>sent("WhatsApp")},"WhatsApp"),
+        el("button",{class:"btn",onclick:e=>{copy(txt,e.currentTarget);sent("copie")}},"Copier le point"))}
+    else bar.append(el("button",{class:"btn primary",onclick:e=>{copy(p.msg,e.currentTarget);if(!st)set({opp_status:"en_cours",opp_since:today(),opp_log:[...log,{date:today(),text:"Message copié"}]})}},"Copier le message"));
+    if(st==="en_cours")bar.append(el("button",{class:"btn",onclick:()=>set({opp_status:"rdv",opp_log:[...log,{date:today(),text:"Rendez-vous obtenu"}]})},"RDV obtenu"));
+    if(st==="rdv")bar.append(el("button",{class:"btn",onclick:()=>set({opp_status:"gagne",opp_log:[...log,{date:today(),text:"Mission gagnée"}]})},"Gagnée"));
+    if(st)bar.append(el("button",{class:"btn",onclick:()=>openNote(o)},"Noter"));
+    if(st!=="ecarte")bar.append(el("button",{class:"btn",title:"Pas pertinent",onclick:()=>{const why=prompt("Pourquoi ce n'est pas pertinent ?","");if(why===null)return;
       set({opp_status:"ecarte",opp_reason:why.trim(),opp_log:[...log,{date:today(),text:"Écartée"+(why.trim()?" : "+why.trim():"")}]});
-      if(s&&!o.alum)upd("signals",s.id,{feedback:"no",feedback_reason:why.trim()})}},"Pas pertinent"));
-    else act.append(el("button",{class:"btn",onclick:()=>set({opp_status:""})},"Remettre"));
-    card.append(act)}
-  return card;
+      if(s&&!o.alum)upd("signals",s.id,{feedback:"no",feedback_reason:why.trim()})}},"Écarter"));
+    else bar.append(el("button",{class:"btn",onclick:()=>set({opp_status:""})},"Remettre"));
+  }
+  return el("article",{class:"rc "+lvl+(st==="ecarte"||st==="gagne"?" done":"")},
+    el("details",{},el("summary",{},
+      el("span",{class:"t1"},el("span",{class:"chev"},"▸ "),a.name),
+      el("span",{class:"actions"},st?el("span",{class:"pill acc"},OPP_ST[st]):null,el("span",{class:"pill "+lvl,title:"profil "+o.fit+" · déclencheur "+o.trig+" · porte d'entrée "+o.door},p.label)),
+      el("span",{class:"t2"},door+(s?" · "+ago(s.date):""))),body),bar);
 }
 function renderOpps(){
   const all=buildOpps();lastOpps=all;
   const todo=all.filter(o=>!o.a.opp_status&&o.qualified), doing=all.filter(o=>["en_cours","rdv"].includes(o.a.opp_status)),
-    watch=all.filter(o=>!o.a.opp_status&&!o.qualified), arch=all.filter(o=>["ecarte","gagne"].includes(o.a.opp_status));
-  $("n-opps").textContent=todo.length+doing.length;
-  let list=oppFilter==="todo"?todo:oppFilter==="doing"?doing.sort((x,y)=>String(x.a.opp_date||"9").localeCompare(String(y.a.opp_date||"9"))):oppFilter==="watch"?watch:arch;
-  if(oppFilter==="todo")list=list.slice(0,15);
-  $("opp-note").textContent=oppFilter==="watch"?"déclencheur sans porte d'entrée, ou porte d'entrée sans déclencheur assez fort":oppFilter==="todo"&&todo.length>15?"les 15 meilleures sur "+todo.length:"";
+    arch=all.filter(o=>["ecarte","gagne"].includes(o.a.opp_status));
+  $("n-opps").textContent=Math.min(5,todo.length)+doing.length;
+  let list=oppFilter==="todo"?todo.slice(0,5):oppFilter==="doing"?doing.sort((x,y)=>String(x.a.opp_date||"9").localeCompare(String(y.a.opp_date||"9"))):arch;
+  $("opp-note").textContent=oppFilter==="todo"&&todo.length>5?"les 5 meilleures sur "+todo.length:"";
   const box=$("opps");
-  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},oppFilter==="todo"?"Aucune opportunité qualifiée pour l'instant":"Rien ici"),
-    el("span",{},oppFilter==="todo"?"Le scan de chaque matin ajoute les nouvelles. Importe les relations de l'équipe (roue crantée) pour ouvrir plus de portes d'entrée.":"Change de filtre pour voir les autres.")));return}
+  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},oppFilter==="todo"?"Rien de nouveau cette semaine":"Rien ici"),
+    el("span",{},oppFilter==="todo"?"Le scan de chaque matin ajoute les nouvelles.":"")));return}
   box.replaceChildren(...list.map(oppCard));
 }
 function openNote(o){noting=o;$("dn-title").textContent="Noter : "+o.a.name;$("dn-text").value="";$("dn-next").value=o.a.opp_next||"";$("dn-date").value=o.a.opp_date||"";$("dlg-note").showModal()}
@@ -458,38 +470,39 @@ function saveNote(){const o=noting;if(!o)return;const log=[...(o.a.opp_log||[])]
 /* ---------- Événements ---------- */
 function evMsg(e){return"Bonjour,\n\nJ'ai vu que vous organisez "+e.name+(e.date_text||e.date?" ("+(e.date_text||fmt(e.date))+")":"")+". Chez Réuniologie, nous aidons des équipes de direction ("+REFS+") à rendre leurs réunions plus courtes et plus décisives.\n\nNous proposons d'animer gratuitement un atelier de 45 minutes, « La réunion de Comex qui décide vraiment », où les participants testent la méthode en direct sur leurs propres réunions. Pour vous, c'est un temps fort de plus au programme, sans coût. Nous pouvons aussi faciliter vos tables rondes pour qu'elles débouchent sur des idées concrètes.\n\nSeriez-vous d'accord pour en parler 15 minutes cette semaine ?"}
 function evCard(e){
-  const st=e.status||"a_contacter", d=e.date?new Date(e.date+"T12:00:00"):null;
-  const soon=e.cfp_deadline&&e.cfp_deadline>=today()&&ageDays(e.cfp_deadline)>-21;
-  const card=el("article",{class:"card "+(e.kind==="reseau"?"hot":e.kind==="conference"?"warm":"cool")+(st==="ecarte"||st==="fait"?" done":"")},
-    el("div",{class:"top",style:"align-items:center"},
-      el("div",{class:"hrow",style:"align-items:center;flex-wrap:nowrap;min-width:0"},
-        el("div",{class:"date"},d?String(d.getDate()):"?",el("small",{},d?d.toLocaleDateString("fr-FR",{month:"short",year:"2-digit"}):"date")),
-        el("div",{style:"min-width:0"},el("div",{class:"who"},e.name),el("div",{class:"meta"},[e.organizer,e.city,e.date_text&&!e.date?e.date_text:null].filter(Boolean).join(" · ")))),
-      el("span",{class:"actions"},el("span",{class:"pill"},KIND[e.kind]||"Événement"),soon?el("span",{class:"pill hot"},"Appel à intervenants avant le "+fmt(e.cfp_deadline)):null,st!=="a_contacter"?el("span",{class:"pill acc"},EV_ST[st]):null)));
+  const st=e.status||"a_contacter";
+  const soon=e.cfp_deadline&&e.cfp_deadline>=today();
+  const msg=evMsg(e);
+  const body=el("div",{class:"body"});
   const facts=el("dl",{class:"facts"});const add=(k,...v)=>facts.append(el("dt",{},k),el("dd",{},...v));
   if(e.audience)add("Public",e.audience+(e.size?" · "+e.size:""));
   if(e.angle)add("Proposer",e.angle);
-  add("Contacter",e.contact_hint||"L'organisateur",
-    " ",el("a",{href:liPeople((e.contact_hint&&/[A-Z][a-z]+ [A-Z]/.test(e.contact_hint)?e.contact_hint:"")+" "+(e.organizer||e.name)),target:"_blank",rel:"noopener",class:"lnk"},"LinkedIn"));
-  card.append(facts);
-  card.append(el("details",{},el("summary",{},"Message type"),el("pre",{class:"msg"},evMsg(e)),el("button",{class:"btn",style:"margin-top:6px",onclick:x=>copy(evMsg(e),x.currentTarget)},"Copier le message")));
-  const act=el("div",{class:"actions"},link(e.url,"Site de l'événement"),e.cfp_url?link(e.cfp_url,"Appel à intervenants"):null);
+  add("Contacter",e.contact_hint||"L'organisateur"," ",el("a",{href:liPeople(e.organizer||e.name),target:"_blank",rel:"noopener",class:"lnk"},"LinkedIn"));
+  body.append(facts,el("pre",{class:"msg"},msg));
+  const bar=el("div",{class:"bar"},el("button",{class:"btn primary",onclick:x=>{copy(msg,x.currentTarget);if(db&&st==="a_contacter")upd("events",e.id,{status:"contacte",updatedAt:new Date().toISOString()})}},"Copier le message"),
+    link(e.cfp_url||e.url,e.cfp_url?"Appel à intervenants":"Site"));
   if(db){const sel=el("select",{"aria-label":"Statut",style:"width:auto"},...Object.entries(EV_ST).map(([k,v])=>{const o=el("option",{value:k},v);if(k===st)o.selected=true;return o}));
-    sel.addEventListener("change",()=>upd("events",e.id,{status:sel.value,updatedAt:new Date().toISOString()}));act.append(sel)}
-  card.append(act);return card;
+    sel.addEventListener("change",()=>upd("events",e.id,{status:sel.value,updatedAt:new Date().toISOString()}));bar.append(sel)}
+  return el("article",{class:"rc "+(e.kind==="reseau"?"hot":e.kind==="conference"?"warm":"")+(st==="ecarte"||st==="fait"?" done":"")},
+    el("details",{},el("summary",{},
+      el("span",{class:"t1"},el("span",{class:"chev"},"▸ "),e.name),
+      el("span",{class:"actions"},soon?el("span",{class:"pill hot"},"candidater avant le "+fmt(e.cfp_deadline)):null,el("span",{class:"pill"},KIND[e.kind]||"Événement")),
+      el("span",{class:"t2"},[e.date?fmt(e.date):e.date_text||"date à confirmer",e.city,e.organizer].filter(Boolean).join(" · "))),body),bar);
 }
 function renderEvents(){
   const t=today(), past=e=>e.date&&e.date<t;
   const todo=events.filter(e=>(e.status||"a_contacter")==="a_contacter"&&!past(e)),
     doing=events.filter(e=>["contacte","discussion","confirme"].includes(e.status)),
     arch=events.filter(e=>["fait","ecarte"].includes(e.status)||(past(e)&&!["contacte","discussion","confirme"].includes(e.status)));
-  $("n-events").textContent=todo.length+doing.length;
   const prio={reseau:0,conference:1,salon:2};
-  let list=evFilter==="todo"?todo:evFilter==="doing"?doing:arch;
-  list=[...list].sort((a,b)=>evFilter==="archive"?String(b.date).localeCompare(String(a.date)):String(a.date||"9999").localeCompare(String(b.date||"9999"))||(prio[a.kind]??3)-(prio[b.kind]??3));
+  // Prochains : d'abord les appels à intervenants qui ferment, puis par date ; les événements sans date à la fin
+  const key=e=>e.cfp_deadline&&e.cfp_deadline>=t?e.cfp_deadline:(e.date||"9999");
+  const sorted=[...todo].sort((a,b)=>key(a).localeCompare(key(b))||(prio[a.kind]??3)-(prio[b.kind]??3));
+  $("n-events").textContent=Math.min(5,todo.length)+doing.length;
+  let list=evFilter==="todo"?sorted.slice(0,5):evFilter==="doing"?doing:[...arch].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const box=$("events");
-  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},events.length?"Rien ici":"Pas encore d'événements"),el("span",{},events.length?"Change de filtre pour voir les autres.":"Le scan ajoute les événements repérés ; tu peux aussi en ajouter un toi-même.")));return}
-  box.replaceChildren(...list.map(evCard));
+  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},"Rien ici")));return}
+  box.replaceChildren(...list.map(evCard),evFilter==="todo"&&todo.length>5?el("p",{class:"hint"},(todo.length-5)+" autres événements à venir, affichés au fur et à mesure."):"");
 }
 
 /* ---------- Réglages ---------- */
