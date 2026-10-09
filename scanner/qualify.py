@@ -8,6 +8,7 @@ import sys
 
 MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-5-5")
 _client = None
+_warned = False
 
 
 def enabled():
@@ -94,9 +95,13 @@ def _ask(system, prompt, schema):
             messages=[{"role": "user", "content": prompt}],
         )
     except anthropic.APIStatusError as e:
-        print("IA indisponible :", e.status_code, str(e)[:200], file=sys.stderr)
-        if e.status_code in (401, 403):
-            print("::error::Clé ANTHROPIC_API_KEY refusée : vérifier le secret GitHub.")
+        global _warned
+        if not _warned:
+            _warned = True
+            if e.status_code in (401, 403):
+                print("::error::Clé ANTHROPIC_API_KEY refusée : vérifier le secret GitHub.")
+            else:
+                print(f"::warning::L'IA a répondu {e.status_code} ({MODEL}) : {str(e)[:200]}")
         return None
     except anthropic.APIConnectionError as e:
         print("IA injoignable :", e, file=sys.stderr)
