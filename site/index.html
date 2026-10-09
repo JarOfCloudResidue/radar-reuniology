@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Radar Reuniology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working desk. Header with two tabs; Posts = searches rail + post queue; Signaux = ranked list of signal cards. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --line:#d9dfe5; --fg:#16212b; --muted:#5b6875;
+  --accent:#0d5c63; --accent-soft:#dcecec; --on-accent:#ffffff;
+  --strong:#b4232a; --strong-soft:#f8e1e0; --mid:#a8640a; --mid-soft:#f7ead4; --weak:#5b6875; --weak-soft:#e7ebef;
+  --ok:#1f7a3f; --ok-soft:#dff0e4;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10161c; --surface:#18212a; --line:#2a3642; --fg:#e4eaf0; --muted:#9aa8b5;
+  --accent:#5fc0c4; --accent-soft:#183d40; --on-accent:#0b1a1c;
+  --strong:#f2827f; --strong-soft:#3d1f20; --mid:#e7ad55; --mid-soft:#3a2c17; --weak:#9aa8b5; --weak-soft:#25303a;
+  --ok:#6fcf8f; --ok-soft:#1a3524; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10161c; --surface:#18212a; --line:#2a3642; --fg:#e4eaf0; --muted:#9aa8b5;
+  --accent:#5fc0c4; --accent-soft:#183d40; --on-accent:#0b1a1c;
+  --strong:#f2827f; --strong-soft:#3d1f20; --mid:#e7ad55; --mid-soft:#3a2c17; --weak:#9aa8b5; --weak-soft:#25303a;
+  --ok:#6fcf8f; --ok-soft:#1a3524; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font:700 1.9rem/1.1 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.tabs{display:flex;flex-wrap:wrap;max-width:100%;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 .95rem var(--f-body);padding:8px 14px;border-radius:7px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent)}
+.count{font:500 .8rem var(--f-mono);font-variant-numeric:tabular-nums;opacity:.85}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:500;font-size:.9rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.grid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px;min-width:0}
+h2{font:600 1.1rem/1.2 var(--f-display);margin:0}
+.label{font:500 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:4px 10px;font-size:.85rem;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg);font-weight:600}
+.searches{display:flex;flex-wrap:wrap;gap:6px}
+.searches a{text-decoration:none;color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:.88rem;background:var(--bg)}
+.searches a:hover{border-color:var(--accent);color:var(--accent)}
+.searches .x{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 0 0 4px}
+.hint{color:var(--muted);font-size:.85rem;margin:0}
+form{display:grid;gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1 1 140px;min-width:0}
+input,select,textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px;width:100%}
+textarea{min-height:76px;resize:vertical}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.list{display:grid;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:8px;min-width:0;border-left-width:4px}
+.card.s-fort{border-left-color:var(--strong)} .card.s-moyen{border-left-color:var(--mid)} .card.s-faible{border-left-color:var(--line)}
+.card.post{border-left-color:var(--accent)}
+.card.done{opacity:.72}
+.top{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;justify-content:space-between}
+.who{font-weight:600;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.84rem;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.note{margin:0;overflow-wrap:anywhere}
+.why{margin:0;color:var(--muted);overflow-wrap:anywhere}
+.pill{display:inline-block;font:500 .74rem var(--f-mono);padding:2px 8px;border-radius:999px;background:var(--weak-soft);color:var(--weak);white-space:nowrap}
+.pill.fort{background:var(--strong-soft);color:var(--strong)} .pill.moyen{background:var(--mid-soft);color:var(--mid)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.acc{background:var(--accent-soft);color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.actions a{color:var(--accent);font-weight:600;font-size:.9rem}
+.draft{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px;white-space:pre-wrap;margin:0;font-size:.92rem}
+.empty{border:1px dashed var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted);display:grid;gap:6px;justify-items:center}
+.empty strong{color:var(--fg);font-family:var(--f-display);font-size:1.05rem}
+.banner{background:var(--mid-soft);color:var(--fg);border-radius:10px;padding:10px 14px;font-size:.9rem}
+details summary{cursor:pointer;font-weight:600}
+.sigcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:20px;align-items:start}
+@media (max-width:860px){.sigcols{grid-template-columns:minmax(0,1fr)}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.stat b{display:block;font:600 1.6rem/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.85rem}
+.pipe{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.col{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;align-content:start;min-width:0}
+.col h3{font:600 .9rem var(--f-body);margin:0;display:flex;justify-content:space-between}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:.88rem;cursor:pointer;text-align:left;width:100%}
+.mini:hover{border-color:var(--accent)}
+.card.c-late{border-left-color:var(--strong)} .card.c-today{border-left-color:var(--mid)} .card.c-ok{border-left-color:var(--accent)}
+.log{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.log li{font-size:.88rem;border-top:1px solid var(--line);padding-top:4px;overflow-wrap:anywhere}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);padding:16px;width:min(560px,calc(100% - 32px));max-height:calc(100% - 32px)}
+dialog::backdrop{background:rgb(0 0 0 / .4)}
+.fl{display:grid;gap:3px;font-size:.85rem;color:var(--muted)}
+.knows{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.knows li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.9rem}
+.knows .t{font-weight:600}
+table.wk{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+table.wk th,table.wk td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right;white-space:nowrap}
+table.wk th:first-child,table.wk td:first-child{text-align:left}
+table.wk thead th{font:500 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+table.wk tr.tot td{font-weight:600}
+.prev{color:var(--muted);font-size:.78rem;margin-left:4px}
+.scroll{overflow-x:auto}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#login{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;padding:16px;z-index:10}
+#login .panel{width:min(420px,100%)}
+.me{display:flex;gap:8px;align-items:center;justify-content:flex-end;color:var(--muted);font-size:.85rem}
+.me button{border:0;background:none;color:var(--accent);cursor:pointer;font-weight:600;padding:0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="me"><span id="whoami"></span><label style="cursor:pointer;color:var(--accent);font-weight:600">Importer une sauvegarde<input id="restore" type="file" accept=".json,application/json" hidden></label><button id="logout" type="button">Se déconnecter</button></div>
+  <header>
+    <div>
+      <h1>Radar Reuniology</h1>
+      <p class="sub">Les conversations LinkedIn sur les réunions à rejoindre, et les entreprises où un changement crée une occasion. Chacun répond depuis son propre compte.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-posts" aria-selected="true" data-tab="posts">Posts <span class="count" id="n-posts">0</span></button>
+      <button role="tab" id="tab-signaux" aria-selected="false" data-tab="signaux">Signaux <span class="count" id="n-sig">0</span></button>
+      <button role="tab" id="tab-comptes" aria-selected="false" data-tab="comptes">Comptes <span class="count" id="n-acc">0</span></button>
+      <button role="tab" id="tab-suivi" aria-selected="false" data-tab="suivi">Suivi <span class="count" id="n-due">0</span></button>
+    </div>
+  </header>
+
+  <div class="banner" id="offline" hidden>Connexion à la base impossible pour l'instant. Recharge la page dans un moment.</div>
+
+  <!-- POSTS -->
+  <section id="view-posts" class="grid">
+    <div class="panel">
+      <div class="toolbar"><h2>Recherches du jour</h2>
+        <div class="seg" role="group" aria-label="Période">
+          <button id="p-24" aria-pressed="true" data-period="past-24h">24 h</button>
+          <button id="p-7" aria-pressed="false" data-period="past-week">7 jours</button>
+        </div>
+      </div>
+      <p class="hint">Un clic ouvre LinkedIn dans ta session, posts les plus récents d'abord.</p>
+      <div class="label">Français</div>
+      <div class="searches" id="s-fr"></div>
+      <div class="label">English</div>
+      <div class="searches" id="s-en"></div>
+      <div class="label">Ajoutées par l'équipe</div>
+      <div class="searches" id="s-team"><span class="hint">Aucune pour l'instant.</span></div>
+      <form id="f-search" class="row">
+        <input id="in-search" placeholder="Nouveau mot-clé" aria-label="Nouveau mot-clé" maxlength="80">
+        <button class="btn" style="flex:0 0 auto">Ajouter</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Ajouter un post repéré</h2>
+      <form id="f-post">
+        <input id="in-url" type="url" required placeholder="Lien du post LinkedIn" aria-label="Lien du post LinkedIn">
+        <div class="row">
+          <input id="in-author" placeholder="Auteur" aria-label="Auteur">
+          <input id="in-company" placeholder="Entreprise et poste" aria-label="Entreprise et poste">
+        </div>
+        <textarea id="in-text" placeholder="Colle le texte du post (sert au brouillon de commentaire)" aria-label="Texte du post"></textarea>
+        <div class="row"><button class="btn primary" id="b-add" style="flex:0 0 auto">Ajouter à la file</button></div>
+      </form>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Filtre" id="post-filter">
+          <button aria-pressed="true" data-f="open">À traiter</button>
+          <button aria-pressed="false" data-f="mine">Les miens</button>
+          <button aria-pressed="false" data-f="done">Traités</button>
+          <button aria-pressed="false" data-f="all">Tous</button>
+        </div>
+      </div>
+      <div class="list" id="posts"></div>
+    </div>
+  </section>
+
+  <!-- SIGNAUX -->
+  <section id="view-signaux" class="sigcols" hidden>
+    <div class="panel">
+      <div class="toolbar"><h2>Signaux d'opportunité</h2>
+        <div class="seg" role="group" aria-label="Filtre" id="sig-filter">
+          <button aria-pressed="true" data-f="new">Nouveaux</button>
+          <button aria-pressed="false" data-f="fort">Forts</button>
+          <button aria-pressed="false" data-f="taken">Pris</button>
+          <button aria-pressed="false" data-f="all">Tous</button>
+        </div>
+      </div>
+      <div class="list" id="signals"></div>
+    </div>
+    <div class="panel">
+      <h2>Comment lire un signal</h2>
+      <p class="hint"><span class="pill fort">fort</span> nouveau DG, DRH ou Comex dans une entreprise cible, réorganisation annoncée, rapport qui parle de charge de réunions.</p>
+      <p class="hint"><span class="pill moyen">moyen</span> fusion, plan de transformation, recrutement d'un chief of staff ou d'un responsable transformation.</p>
+      <p class="hint"><span class="pill">faible</span> actualité générale de l'entreprise, à garder en tête.</p>
+      <details>
+        <summary>Ajouter un signal à la main</summary>
+        <form id="f-sig" style="margin-top:10px">
+          <input id="sg-company" required placeholder="Entreprise" aria-label="Entreprise">
+          <input id="sg-title" required placeholder="Ce qui s'est passé" aria-label="Ce qui s'est passé">
+          <input id="sg-url" type="url" placeholder="Lien vers la source" aria-label="Lien vers la source">
+          <select id="sg-strength" aria-label="Force du signal"><option value="fort">Fort</option><option value="moyen" selected>Moyen</option><option value="faible">Faible</option></select>
+          <textarea id="sg-why" placeholder="Pourquoi c'est une occasion, et quoi faire" aria-label="Pourquoi"></textarea>
+          <button class="btn primary">Ajouter</button>
+        </form>
+      </details>
+    </div>
+  </section>
+  <!-- COMPTES -->
+  <section id="view-comptes" class="sigcols" hidden>
+    <div class="panel">
+      <div class="toolbar"><h2>Comptes à travailler</h2>
+        <div class="seg" role="group" aria-label="Filtre" id="acc-filter">
+          <button aria-pressed="true" data-f="cible">Nouvelles cibles</button>
+          <button aria-pressed="false" data-f="client">Clients</button>
+          <button aria-pressed="false" data-f="active">À approcher</button>
+          <button aria-pressed="false" data-f="intro">Avec un chemin d'intro</button>
+          <button aria-pressed="false" data-f="all">Tous</button>
+        </div>
+      </div>
+      <div class="list" id="accounts"></div>
+    </div>
+    <div style="display:grid;gap:20px;min-width:0">
+    <div class="panel">
+      <h2>Relations de l'équipe</h2>
+      <p class="hint">Chaque membre télécharge ses relations sur LinkedIn : Paramètres › Confidentialité des données › Obtenir une copie de vos données › Relations. Le fichier reçu s'appelle Connections.csv.</p>
+      <form id="f-rel">
+        <div class="row">
+          <select id="rel-member" aria-label="Membre" required></select>
+          <input id="rel-file" type="file" accept=".csv,text/csv" aria-label="Fichier Connections.csv" required>
+        </div>
+        <button class="btn primary" id="rel-go" style="justify-self:start">Importer des relations</button>
+        <p class="hint" id="rel-msg" role="status"></p>
+      </form>
+      <div id="rel-status"></div>
+      <details id="rel-leads"><summary>Pistes hors Radar</summary><div id="rel-leads-list" style="margin-top:8px"></div></details>
+    </div>
+    <div class="panel">
+      <h2>Note sur 100</h2>
+      <p class="hint"><strong>Profil, sur 40</strong> : secteur et taille proches de vos clients (agroalimentaire, industrie, distribution B2B, banque et assurance, secteur public), entre 300 et 3 000 salariés.</p>
+      <p class="hint"><strong>Déclencheur, sur 40</strong> : croissance, rachat, réorganisation, internationalisation ou nouveau dirigeant dans les 12 derniers mois.</p>
+      <p class="hint"><strong>Sujet, sur 20</strong> : signal public sur les réunions, le management, la collaboration ou le travail hybride (accord télétravail ou QVCT, offre d'emploi, article, post).</p>
+      <p class="hint">Le scanner remplit le déclencheur et le sujet. Les effectifs marqués « à vérifier » sont des estimations.</p>
+    </div>
+    </div>
+  </section>
+  <!-- SUIVI (CRM) -->
+  <section id="view-suivi" hidden style="display:grid;gap:16px">
+    <div class="stats" id="stats"></div>
+    <div class="panel">
+      <div class="toolbar"><h2>Semaine en cours</h2><span class="meta" id="wk-range"></span></div>
+      <div class="scroll" id="week"></div>
+      <p class="hint">Entre parenthèses : la semaine précédente. Les réponses et appels comptent les contacts passés à cette étape dans la semaine.</p>
+    </div>
+    <div class="panel">
+      <div class="toolbar"><h2>Suivi des contacts</h2>
+        <div class="row" style="flex:0 1 auto;align-items:center">
+          <div class="seg" role="group" aria-label="Vue" id="crm-filter" style="flex:0 1 auto">
+            <button aria-pressed="true" data-f="today">À faire aujourd'hui</button>
+            <button aria-pressed="false" data-f="pipe">Pipeline</button>
+            <button aria-pressed="false" data-f="all">Tous</button>
+          </div>
+          <select id="crm-owner" aria-label="Porteur" style="width:auto"></select>
+          <button class="btn primary" id="b-new-contact" style="flex:0 0 auto">Ajouter un contact</button>
+        </div>
+      </div>
+      <div id="crm"></div>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlg-contact">
+  <form id="f-contact" method="dialog">
+    <h2 id="dc-title">Nouveau contact</h2>
+    <p class="hint" id="dc-origin" hidden></p>
+    <label class="fl">Compte<input id="dc-account" list="dl-accounts" required autocomplete="off"></label>
+    <datalist id="dl-accounts"></datalist>
+    <div class="row">
+      <label class="fl">Nom<input id="dc-name" required></label>
+      <label class="fl">Fonction<select id="dc-role"></select></label>
+    </div>
+    <div class="row">
+      <label class="fl">Profil LinkedIn<input id="dc-li" type="url" placeholder="https://www.linkedin.com/in/…"></label>
+      <label class="fl">Email<input id="dc-email" type="email"></label>
+    </div>
+    <div class="row">
+      <label class="fl">Porteur<select id="dc-owner"></select></label>
+      <label class="fl">Étape<select id="dc-stage"></select></label>
+    </div>
+    <label class="fl">Chemin d'introduction<input id="dc-intro" placeholder="Ex. connaît Louis"></label>
+    <div class="row">
+      <label class="fl" style="flex:2 1 200px">Prochaine action<input id="dc-next" placeholder="Ex. commenter son dernier post"></label>
+      <label class="fl">Pour le<input id="dc-date" type="date"></label>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn" type="button" id="dc-del" hidden style="flex:0 0 auto">Supprimer</button>
+      <span style="flex:1 1 0"></span>
+      <button class="btn" type="button" id="dc-cancel" style="flex:0 0 auto">Annuler</button>
+      <button class="btn primary" style="flex:0 0 auto">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-log">
+  <form id="f-log" method="dialog">
+    <h2 id="dl-title">Noter un échange</h2>
+    <div class="row">
+      <label class="fl">Type<select id="dl-type"></select></label>
+      <label class="fl">Date<input id="dl-date" type="date" required></label>
+    </div>
+    <label class="fl">Note<textarea id="dl-note" placeholder="Ce qui s'est dit, ce qui est convenu"></textarea></label>
+    <p class="label" style="margin:4px 0 0">Mettre à jour le contact</p>
+    <div class="row">
+      <label class="fl">Étape<select id="dl-stage"></select></label>
+      <label class="fl">Prochaine action pour le<input id="dl-ndate" type="date"></label>
+    </div>
+    <label class="fl">Prochaine action<input id="dl-next"></label>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" type="button" id="dl-cancel" style="flex:0 0 auto">Annuler</button>
+      <button class="btn primary" style="flex:0 0 auto">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+
+<div id="login" hidden>
+  <div class="panel">
+    <h1>Radar Reuniology</h1>
+    <p class="hint">Entre ton email professionnel : tu reçois un lien de connexion, sans mot de passe.</p>
+    <form id="login-form">
+      <input id="login-email" type="email" required placeholder="prenom@reuniology.com" aria-label="Email" autocomplete="email">
+      <button class="btn primary" style="justify-self:start">Recevoir le lien</button>
+    </form>
+    <p class="hint" id="login-msg" role="status"></p>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.99.3/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="shim.js"></script>
+<script>
+const FR=["réunionite","trop de réunions","réunions inutiles","efficacité des réunions","culture de réunion","comité de direction","séminaire de direction","Comex","temps de réunion","rituels managériaux"];
+const EN=["too many meetings","meeting overload","meeting culture","meeting fatigue","leadership team meeting","executive offsite","better meetings"];
+const POST_STATUS={todo:["À traiter",""],commented:["Commenté","acc"],talk:["En conversation","ok"],ignored:["Ignoré",""]};
+const SIG_STATUS={new:["Nouveau",""],taken:["Pris","acc"],dropped:["Écarté",""]};
+let period="past-24h", postFilter="open", sigFilter="new", accFilter="cible", accounts=[];
+const ACC_STATUS={a_qualifier:"À qualifier",a_approcher:"À approcher",en_cours:"En cours",ecarte:"Écarté"};
+const STAGES={identifie:"Identifié",rechauffe:"Réchauffé",contacte:"Contacté",a_repondu:"A répondu",appel:"Appel planifié",proposition:"Proposition",gagne:"Gagné",perdu:"Perdu",pause:"En pause"};
+const ORDER=["identifie","rechauffe","contacte","a_repondu","appel","proposition","gagne"];
+const ROLES=["DRH","DG","Dir. transformation","Dir. organisation","Autre"];
+const TEAM=["Vincent","Louis","Samar","Olivier","Jo","Philippe"];
+const ITYPES={commentaire:"Commentaire",like:"Like ciblé",invitation:"Invitation",message:"Message LinkedIn",email:"Email",appel:"Appel",reunioscope:"Réunioscope rempli",autre:"Autre"};
+let relChunks=[], relMeta=[], relations=[], relIndex=new Map();
+let contacts=[], interactions=[], crmView="today", crmOwner="", editing=null, logging=null;
+let db=null, user=null, sample=null, me=null, posts=[], signals=[], teamSearches=[], names={};
+
+const $=id=>document.getElementById(id);
+const el=(tag,attrs={},...kids)=>{const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")n.className=v;else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);else n.setAttribute(k,v)}for(const k of kids)if(k!=null)n.append(k);return n};
+const liUrl=k=>"https://www.linkedin.com/search/results/content/?keywords="+encodeURIComponent(k)+"&sortBy=%22date_posted%22&datePosted=%22"+period+"%22";
+const safeUrl=u=>{try{const x=new URL(u);return /^https?:$/.test(x.protocol)?x.href:null}catch{return null}};
+function ago(iso){if(!iso)return"";const d=(Date.now()-new Date(iso))/864e5;if(d<1/24)return"à l'instant";if(d<1)return"il y a "+Math.round(d*24)+" h";if(d<30)return"il y a "+Math.round(d)+" j";return new Date(iso).toLocaleDateString("fr-FR")}
+const who=id=>id?(id===me?"toi":(names[id]||"un collègue")):null;
+
+function renderSearches(){
+  for(const[box,list]of[[$("s-fr"),FR],[$("s-en"),EN]]){box.replaceChildren(...list.map(k=>el("a",{href:liUrl(k),target:"_blank",rel:"noopener"},k)))}
+  const t=$("s-team");
+  if(!teamSearches.length){t.replaceChildren(el("span",{class:"hint"},"Aucune pour l'instant."));return}
+  t.replaceChildren(...teamSearches.map(s=>el("a",{href:liUrl(s.k),target:"_blank",rel:"noopener"},s.k,
+    db?el("button",{class:"x","aria-label":"Retirer "+s.k,title:"Retirer",onclick:e=>{e.preventDefault();db.doc("searches/"+s.id).delete()}},"×"):null)));
+}
+
+function postCard(p){
+  const st=POST_STATUS[p.status]||POST_STATUS.todo;
+  const url=safeUrl(p.url);
+  const card=el("article",{class:"card post"+(p.status==="ignored"||p.status==="commented"?" done":"")},
+    el("div",{class:"top"},el("span",{class:"who"},p.author||"Auteur non renseigné",p.company?el("span",{class:"meta"}," · "+p.company):null),
+      el("span",{class:"pill "+st[1]},st[0])),
+    p.text?el("p",{class:"note"},p.text.length>260?p.text.slice(0,260)+"…":p.text):null,
+    el("div",{class:"meta"},"Ajouté "+ago(p.createdAt)+(p.owner?" · suivi par "+who(p.owner):"")));
+  if(p.draft)card.append(el("pre",{class:"draft"},p.draft));
+  const a=el("div",{class:"actions"});
+  if(url)a.append(el("a",{href:url,target:"_blank",rel:"noopener"},"Ouvrir sur LinkedIn"));
+  if(db){
+    const upd=f=>db.doc("posts/"+p.id).update(f).catch(err);
+    if(p.owner!==me&&me)a.append(el("button",{class:"btn",onclick:()=>upd({owner:me})},"Je m'en occupe"));
+    if(sample)a.append(el("button",{class:"btn",onclick:e=>draft(p,e.currentTarget)},p.draft?"Nouveau brouillon":"Brouillon de commentaire"));
+    if(p.draft)a.append(el("button",{class:"btn",onclick:e=>copy(p.draft,e.currentTarget)},"Copier"));
+    const sel=el("select",{"aria-label":"Statut",style:"width:auto"},...Object.entries(POST_STATUS).map(([k,v])=>{const o=el("option",{value:k},v[0]);if(k===(p.status||"todo"))o.selected=true;return o}));
+    sel.addEventListener("change",()=>upd({status:sel.value,updatedAt:new Date().toISOString()}));
+    a.append(sel);
+  }
+  card.append(a);return card;
+}
+function renderPosts(){
+  const open=posts.filter(p=>!p.status||p.status==="todo"||p.status==="talk");
+  $("n-posts").textContent=open.length;
+  let list=posts;
+  if(postFilter==="open")list=open;else if(postFilter==="mine")list=posts.filter(p=>p.owner===me);else if(postFilter==="done")list=posts.filter(p=>p.status==="commented"||p.status==="ignored");
+  const box=$("posts");
+  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},posts.length?"Rien dans ce filtre":"La file est vide"),
+    el("span",{},posts.length?"Change de filtre pour voir les autres posts.":"Lance une recherche à gauche, puis colle ici le lien d'un post où la réuniologie a quelque chose à dire.")));return}
+  box.replaceChildren(...list.map(postCard));
+}
+
+function sigCard(s){
+  const st=SIG_STATUS[s.status]||SIG_STATUS.new, str=s.strength||"faible", url=safeUrl(s.url);
+  const card=el("article",{class:"card s-"+str+(s.status==="dropped"?" done":"")},
+    el("div",{class:"top"},el("span",{class:"who"},s.company||"Entreprise"),el("span",{class:"actions"},el("span",{class:"pill "+str},str),el("span",{class:"pill "+st[1]},st[0]))),
+    el("p",{class:"note"},s.title||""),
+    s.why?el("p",{class:"why"},s.why):null,
+    s.action?el("p",{class:"why"},"Action suggérée : "+s.action):null,
+    el("div",{class:"meta"},[s.source,s.date?ago(s.date):null,s.owner?"pris par "+who(s.owner):null].filter(Boolean).join(" · ")));
+  const a=el("div",{class:"actions"});
+  if(url)a.append(el("a",{href:url,target:"_blank",rel:"noopener"},"Source"+(s.source?" ("+s.source+")":"")));
+  const co=s.company||"";
+  if(s.person)a.append(el("a",{href:"https://www.linkedin.com/search/results/people/?keywords="+encodeURIComponent(s.person+" "+co),target:"_blank",rel:"noopener"},s.person+" sur LinkedIn"));
+  else if(co)a.append(el("a",{href:"https://www.linkedin.com/search/results/people/?keywords="+encodeURIComponent(co+" DRH OR \"directeur général\" OR transformation"),target:"_blank",rel:"noopener"},"Dirigeants sur LinkedIn"));
+  if(co)a.append(el("a",{href:"https://www.linkedin.com/search/results/content/?keywords="+encodeURIComponent("\""+co+"\"")+"&sortBy=%22date_posted%22",target:"_blank",rel:"noopener"},"Posts récents"));
+  if(db){
+    const upd=f=>db.doc("signals/"+s.id).update(f).catch(err);
+    const now=()=>new Date().toISOString();
+    if(s.status!=="taken"&&me)a.append(el("button",{class:"btn",onclick:()=>upd({status:"taken",owner:me,handledAt:now()})},"Je le prends"));
+    if(s.status==="taken")a.append(el("button",{class:"btn",onclick:()=>upd({status:"new",owner:""})},"Je le relâche"));
+    if(s.status!=="dropped")a.append(el("button",{class:"btn",onclick:()=>upd({status:"dropped",handledAt:now()})},"Écarter"));
+    else a.append(el("button",{class:"btn",onclick:()=>upd({status:"new",owner:""})},"Remettre"));
+    const nc=contacts.filter(c=>c.signal_id===s.id).length;
+    a.append(el("button",{class:"btn",onclick:()=>openContact(null,{account:co,name:s.person||"",signal:s})},nc?"Ajouter un contact ("+nc+")":"Ajouter un contact"));
+  }
+  card.append(a);return card;
+}
+const rank={fort:0,moyen:1,faible:2};
+function renderSignals(){
+  const fresh=signals.filter(s=>!s.status||s.status==="new");
+  $("n-sig").textContent=fresh.length;
+  let list=signals;
+  if(sigFilter==="new")list=fresh;else if(sigFilter==="fort")list=signals.filter(s=>s.strength==="fort"&&s.status!=="dropped");else if(sigFilter==="taken")list=signals.filter(s=>s.status==="taken");
+  list=[...list].sort((a,b)=>(rank[a.strength]??3)-(rank[b.strength]??3)||String(b.date||"").localeCompare(String(a.date||"")));
+  const box=$("signals");
+  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},signals.length?"Rien dans ce filtre":"Pas encore de signaux"),
+    el("span",{},signals.length?"Change de filtre pour voir les autres signaux.":"Le scanner lit chaque jour les nominations, le BODACC et la presse pour les entreprises cibles. Ses trouvailles s'afficheront ici, classées par force.")));return}
+  box.replaceChildren(...list.map(sigCard));
+}
+
+const score=a=>(+a.fit||0)+(+a.trigger||0)+(+a.topic||0);
+function accCard(a){
+  const sc=score(a), lvl=sc>=70?"fort":sc>=50?"moyen":"faible";
+  const sigs=signals.filter(s=>(s.company||"").toLowerCase()===String(a.name||"").toLowerCase());
+  const card=el("article",{class:"card s-"+lvl+(a.status==="ecarte"?" done":"")},
+    el("div",{class:"top"},el("span",{class:"who"},a.name,el("span",{class:"meta"}," · "+[a.sector,a.city].filter(Boolean).join(" · "))),
+      el("span",{class:"actions"},el("span",{class:"pill "+(a.kind==="client"?"ok":"acc")},a.kind==="client"?"client":"cible"),el("span",{class:"pill "+lvl},sc+" / 100"))),
+    el("div",{class:"meta"},"profil "+(+a.fit||0)+" · déclencheur "+(+a.trigger||0)+" · sujet "+(+a.topic||0)+(a.size?" · effectif "+a.size:"")+(sigs.length?" · "+sigs.length+" signal"+(sigs.length>1?"s":""):"")),
+    a.lookalike?el("p",{class:"why"},"Ressemble à "+a.lookalike+". "+(a.why||"")):el("p",{class:"why"},a.why||""),
+    a.action?el("p",{class:"why"},"Prochaine étape : "+a.action):null);
+  const kn=relIndex.get(a.id)||[];
+  if(kn.length){const li=r=>el("li",{},el("span",{},r.member+" → "),el("span",{class:"t"},r.first+" "+r.last),el("span",{class:"meta"},r.position||""),
+      safeUrl(r.url)?el("a",{href:safeUrl(r.url),target:"_blank",rel:"noopener"},"Profil"):null,
+      db?el("button",{class:"btn",onclick:()=>openContact(null,{account:a.name,name:r.first+" "+r.last,role:roleOf(r.position),li:r.url,owner:r.member,intro:"relation de "+r.member})},"Créer le contact"):null);
+    const top=kn.slice(0,4);
+    card.append(el("div",{},el("div",{class:"label"},"Qui connaît qui ("+kn.length+")"),el("ul",{class:"knows"},...top.map(li)),
+      kn.length>4?el("details",{},el("summary",{class:"hint"},(kn.length-4)+" autres"),el("ul",{class:"knows"},...kn.slice(4,60).map(li))):null))}
+  const q=encodeURIComponent(a.name);
+  const act=el("div",{class:"actions"},
+    el("a",{href:"https://www.linkedin.com/search/results/people/?keywords="+encodeURIComponent(a.name+" DRH OR \"directeur général\" OR transformation OR organisation"),target:"_blank",rel:"noopener"},"Dirigeants sur LinkedIn"),
+    el("a",{href:"https://news.google.com/search?q="+q+"&hl=fr&gl=FR&ceid=FR:fr",target:"_blank",rel:"noopener"},"Actualités"));
+  if(db){const sel=el("select",{"aria-label":"Statut du compte",style:"width:auto"},...Object.entries(ACC_STATUS).map(([k,v])=>{const o=el("option",{value:k},v);if(k===(a.status||"a_qualifier"))o.selected=true;return o}));
+    sel.addEventListener("change",()=>db.doc("accounts/"+a.id).update({status:sel.value}).catch(err));act.append(sel);
+    const nc=contacts.filter(c=>c.account_id===a.id).length;
+    act.append(el("button",{class:"btn",onclick:()=>openContact(null,{account:a.name})},nc?"Ajouter un contact ("+nc+")":"Ajouter un contact"))}
+  card.append(act);return card;
+}
+function renderAccounts(){
+  $("n-acc").textContent=accounts.filter(a=>a.status==="a_approcher").length;
+  let list=accounts;
+  if(accFilter==="cible")list=accounts.filter(a=>a.kind==="cible"&&a.status!=="ecarte");else if(accFilter==="client")list=accounts.filter(a=>a.kind==="client");else if(accFilter==="active")list=accounts.filter(a=>a.status==="a_approcher"||a.status==="en_cours");else if(accFilter==="intro")list=accounts.filter(a=>(relIndex.get(a.id)||[]).length);
+  list=[...list].sort((x,y)=>score(y)-score(x)||String(x.name).localeCompare(String(y.name),"fr"));
+  const box=$("accounts");
+  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},accounts.length?"Rien dans ce filtre":"Pas encore de comptes"),el("span",{},accounts.length?"Change de filtre pour voir les autres comptes.":"La liste des clients et des entreprises qui leur ressemblent s'affichera ici, classée par note.")));return}
+  box.replaceChildren(...list.map(accCard));
+}
+
+/* ---------- Suivi (CRM) ---------- */
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"}):"";
+const accByName=n=>accounts.find(a=>String(a.name||"").toLowerCase()===String(n||"").trim().toLowerCase());
+const opts=(sel,entries,val)=>sel.replaceChildren(...entries.map(([k,v])=>{const o=el("option",{value:k},v);if(k===val)o.selected=true;return o}));
+const stIdx=s=>ORDER.indexOf(s);
+function liLink(c){const u=safeUrl(c.url_linkedin);return u?el("a",{href:u,target:"_blank",rel:"noopener"},"Profil LinkedIn"):
+  el("a",{href:"https://www.linkedin.com/search/results/people/?keywords="+encodeURIComponent(c.name+" "+(c.account_name||"")),target:"_blank",rel:"noopener"},"Chercher sur LinkedIn")}
+
+function contactCard(c){
+  const t=today(), d=c.next_date||"", cls=!d?"":d<t?"c-late":d===t?"c-today":"c-ok";
+  const log=interactions.filter(i=>i.contact_id===c.id);
+  const card=el("article",{class:"card "+cls},
+    el("div",{class:"top"},el("span",{class:"who"},c.name,el("span",{class:"meta"}," · "+[c.role,c.account_name].filter(Boolean).join(" · "))),
+      el("span",{class:"actions"},c.owner?el("span",{class:"pill"},c.owner):null,el("span",{class:"pill "+(c.stage==="gagne"?"ok":c.stage==="perdu"||c.stage==="pause"?"":"acc")},STAGES[c.stage]||"Identifié"))),
+    c.next_action||d?el("p",{class:"note"},(d?(d<t?"En retard · ":d===t?"Aujourd'hui · ":fmtDate(d)+" · "):"")+(c.next_action||"Prochaine action à définir")):el("p",{class:"why"},"Aucune prochaine action prévue."),
+    c.intro?el("p",{class:"why"},"Introduction : "+c.intro):null);
+  if(c.signal_id){const s=signals.find(x=>x.id===c.signal_id);if(s)card.append(el("p",{class:"why"},"Signal d'origine : "+s.title))}
+  if(log.length)card.append(el("details",{},el("summary",{},"Journal ("+log.length+")"),
+    el("ul",{class:"log"},...log.map(i=>el("li",{},el("span",{class:"meta"},fmtDate(i.date)+" · "+(ITYPES[i.type]||(i.type==="etape"?"Étape":i.type))+(i.author?" · "+i.author:"")+" "),i.note||"")))));
+  const a=el("div",{class:"actions"},liLink(c));
+  if(c.email)a.append(el("a",{href:"mailto:"+c.email},"Email"));
+  if(db){a.append(el("button",{class:"btn primary",onclick:()=>openLog(c)},"Noter un échange"),el("button",{class:"btn",onclick:()=>openContact(c)},"Modifier"))}
+  card.append(a);return card;
+}
+function renderCRM(){
+  const t=today(), mine=contacts.filter(c=>!crmOwner||c.owner===crmOwner);
+  const due=mine.filter(c=>c.next_date&&c.next_date<=t&&c.stage!=="gagne"&&c.stage!=="perdu");
+  $("n-due").textContent=contacts.filter(c=>c.next_date&&c.next_date<=t&&c.stage!=="gagne"&&c.stage!=="perdu").length;
+  const wk=Date.now()-7*864e5;
+  const st=[[signals.filter(s=>s.handledAt&&new Date(s.handledAt)>=wk).length,"signaux traités cette semaine"],
+    [mine.filter(c=>stIdx(c.stage)>=stIdx("contacte")).length,"contacts contactés"],
+    [mine.filter(c=>stIdx(c.stage)>=stIdx("a_repondu")).length,"réponses"],
+    [mine.filter(c=>stIdx(c.stage)>=stIdx("appel")).length,"appels"]];
+  $("stats").replaceChildren(...st.map(([n,l])=>el("div",{class:"stat"},el("b",{},String(n)),el("span",{},l))));
+  renderWeek();
+  const box=$("crm");
+  if(crmView==="pipe"){
+    box.replaceChildren(el("div",{class:"pipe"},...Object.entries(STAGES).map(([k,v])=>{const l=mine.filter(c=>(c.stage||"identifie")===k);
+      return el("div",{class:"col"},el("h3",{},v,el("span",{class:"count"},String(l.length))),
+        ...l.map(c=>el("button",{class:"mini",onclick:()=>openContact(c)},el("strong",{},c.name),el("div",{class:"meta"},c.account_name||""))))})));return}
+  let list=crmView==="today"?due:mine;
+  list=[...list].sort((x,y)=>String(x.next_date||"9999").localeCompare(String(y.next_date||"9999"))||String(x.name).localeCompare(String(y.name),"fr"));
+  if(!list.length){box.replaceChildren(el("div",{class:"empty"},el("strong",{},contacts.length?(crmView==="today"?"Rien à faire aujourd'hui":"Aucun contact pour ce porteur"):"Pas encore de contacts"),
+    el("span",{},contacts.length?"Les contacts dont la prochaine action tombe aujourd'hui ou avant s'affichent ici.":"Depuis un signal ou un compte, clique « Ajouter un contact » pour commencer le suivi.")));return}
+  box.replaceChildren(el("div",{class:"list"},...list.map(contactCard)));
+}
+function openContact(c,pre={}){
+  if(!db)return;editing=c;
+  $("dc-title").textContent=c?"Modifier le contact":"Nouveau contact";
+  $("dl-accounts").replaceChildren(...accounts.map(a=>el("option",{value:a.name})));
+  $("dc-account").value=c?c.account_name||"":pre.account||"";
+  $("dc-name").value=c?c.name||"":pre.name||"";
+  opts($("dc-role"),ROLES.map(r=>[r,r]),c?c.role:pre.role||"DRH");
+  $("dc-li").value=c?c.url_linkedin||"":pre.li||"";$("dc-email").value=c?c.email||"":"";
+  let lastOwner="";try{lastOwner=localStorage.getItem("porteur")||""}catch{}
+  opts($("dc-owner"),[["","Personne"],...TEAM.map(n=>[n,n])],c?c.owner||"":pre.owner||lastOwner);
+  opts($("dc-stage"),Object.entries(STAGES),c?c.stage||"identifie":"identifie");
+  $("dc-intro").value=c?c.intro||"":pre.intro||"";
+  $("dc-next").value=c?c.next_action||"":pre.signal&&pre.signal.action?pre.signal.action:"";
+  $("dc-date").value=c?c.next_date||"":today();
+  const sig=pre.signal||(c&&c.signal_id&&signals.find(s=>s.id===c.signal_id));
+  $("dc-origin").hidden=!sig;if(sig)$("dc-origin").textContent="Signal d'origine : "+sig.title;
+  $("f-contact").dataset.signal=pre.signal?pre.signal.id:(c&&c.signal_id)||"";
+  $("dc-del").hidden=!c;
+  $("dlg-contact").showModal();
+}
+async function saveContact(){
+  const an=$("dc-account").value.trim(), acc=accByName(an), owner=$("dc-owner").value;
+  try{localStorage.setItem("porteur",owner)}catch{}
+  const f={account_id:acc?acc.id:"",account_name:acc?acc.name:an,name:$("dc-name").value.trim(),role:$("dc-role").value,
+    url_linkedin:safeUrl($("dc-li").value.trim())||"",email:$("dc-email").value.trim(),owner,stage:$("dc-stage").value,
+    intro:$("dc-intro").value.trim(),next_action:$("dc-next").value.trim(),next_date:$("dc-date").value,signal_id:$("f-contact").dataset.signal||"",updatedAt:new Date().toISOString()};
+  if(editing){await db.doc("contacts/"+editing.id).update(f).catch(err);
+    if((editing.stage||"identifie")!==f.stage)db.collection("interactions").add({contact_id:editing.id,account_id:f.account_id,date:today(),type:"etape",stage_from:editing.stage||"identifie",stage_to:f.stage,note:"Étape : "+STAGES[f.stage],author:owner,authorId:me||"",createdAt:f.updatedAt}).catch(err)}
+  else{await db.collection("contacts").add({...f,createdAt:f.updatedAt,addedBy:me||""}).catch(err);
+    if(acc&&(acc.status||"a_qualifier")==="a_qualifier")db.doc("accounts/"+acc.id).update({status:"en_cours"}).catch(err)}
+}
+function openLog(c){
+  logging=c;$("dl-title").textContent="Échange avec "+c.name;
+  opts($("dl-type"),Object.entries(ITYPES),"commentaire");$("dl-date").value=today();$("dl-note").value="";
+  opts($("dl-stage"),Object.entries(STAGES),c.stage||"identifie");$("dl-next").value=c.next_action||"";$("dl-ndate").value=c.next_date||"";
+  $("dlg-log").showModal();
+}
+async function saveLog(){
+  const c=logging,type=$("dl-type").value;
+  let author="";try{author=localStorage.getItem("porteur")||""}catch{}
+  await db.collection("interactions").add({contact_id:c.id,account_id:c.account_id||"",date:$("dl-date").value,type,stage_from:c.stage||"identifie",stage_to:$("dl-stage").value,note:$("dl-note").value.trim(),author:author||c.owner||"",authorId:me||"",createdAt:new Date().toISOString()}).catch(err);
+  await db.doc("contacts/"+c.id).update({stage:$("dl-stage").value,next_action:$("dl-next").value.trim(),next_date:$("dl-ndate").value,updatedAt:new Date().toISOString()}).catch(err);
+}
+/* ---------- Relations de l'équipe ---------- */
+const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/&amp;/g,"&")
+  .replace(/\(.*?\)/g," ").replace(/\b(sa|sas|sasu|sarl|se|scop|groupe|group|holding|inc|ltd|gmbh|the)\b/g," ").replace(/[^a-z0-9&]+/g," ").trim();
+const TARGET=/\b(drh|rh|ressources humaines|human resources|hr|people|dg|ceo|directeur general|directrice generale|general manager|managing director|transformation|organisation|organization|comex|coo|president|presidente)\b/;
+const isTarget=pos=>TARGET.test(norm(pos));
+function roleOf(pos){const p=norm(pos);if(/\b(drh|rh|ressources humaines|human resources|hr|people)\b/.test(p))return"DRH";
+  if(/transformation/.test(p))return"Dir. transformation";if(/organisation|organization/.test(p))return"Dir. organisation";
+  if(/\b(dg|ceo|directeur general|directrice generale|general manager|managing director|president|presidente)\b/.test(p))return"DG";return"Autre"}
+function buildRelations(){
+  relations=[];for(const c of relChunks)for(const r of c.rows||[])relations.push({member:c.member,first:r[0],last:r[1],url:r[2],company:r[3],position:r[4],since:r[5]});
+  relIndex=new Map();
+  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  const accN=accounts.map(a=>({a,n:norm(a.name)})).filter(x=>x.n.length>=3).map(x=>({...x,re:new RegExp("(^| )"+esc(x.n)+"( |$)"),t:x.n.split(" ")}));
+  const exact=new Map(accN.map(x=>[x.n,x.a]));
+  const SOFT=new Set(["france","fr"]);
+  const hit=rn=>{if(!rn)return null;const e=exact.get(rn);if(e)return e;
+    for(const x of accN)if(x.re.test(rn))return x.a;
+    // "Edenred" in a profile matches the account "Edenred France", but "Crédit Agricole" does not match a regional bank
+    const rt=new Set(rn.split(" "));
+    if(rn.length>=4)for(const x of accN){const rest=x.t.filter(w=>!rt.has(w));if(rest.length<x.t.length&&rest.length&&rest.every(w=>SOFT.has(w))&&x.t.filter(w=>rt.has(w)).length===rt.size)return x.a}
+    return null};
+  const cache=new Map();
+  for(const r of relations){const rn=norm(r.company);if(!cache.has(rn))cache.set(rn,hit(rn));const a=cache.get(rn);r.account=a;
+    if(a){if(!relIndex.has(a.id))relIndex.set(a.id,[]);relIndex.get(a.id).push(r)}}
+  for(const l of relIndex.values())l.sort((x,y)=>isTarget(y.position)-isTarget(x.position));
+  renderRelStatus();
+}
+function renderRelStatus(){
+  const box=$("rel-status");
+  if(!relMeta.length){box.replaceChildren(el("p",{class:"hint"},"Aucune relation importée pour l'instant."));}
+  else box.replaceChildren(el("ul",{class:"knows"},...relMeta.map(m=>el("li",{},el("span",{class:"t"},m.id),
+    el("span",{class:"meta"},m.count+" relations · importées "+ago(m.imported_at)+" · "+(relations.filter(r=>r.member===m.id&&r.account).length)+" dans le Radar")))));
+  const leads=new Map();
+  for(const r of relations)if(!r.account&&r.company&&isTarget(r.position)){const k=norm(r.company);if(!leads.has(k))leads.set(k,{company:r.company,list:[]});leads.get(k).list.push(r)}
+  const L=[...leads.values()].sort((a,b)=>b.list.length-a.list.length).slice(0,80);
+  $("rel-leads").querySelector("summary").textContent="Pistes hors Radar ("+leads.size+" entreprises)";
+  $("rel-leads-list").replaceChildren(L.length?el("ul",{class:"knows"},...L.map(x=>el("li",{},el("span",{class:"t"},x.company),
+    el("span",{class:"meta"},x.list.slice(0,3).map(r=>r.member+" → "+r.first+" "+r.last+(r.position?", "+r.position:"")).join(" ; ")+(x.list.length>3?" …":"")),
+    el("a",{href:"https://annuaire-entreprises.data.gouv.fr/rechercher?terme="+encodeURIComponent(x.company),target:"_blank",rel:"noopener"},"Effectif")))):
+    el("p",{class:"hint"},"Les relations au bon poste dans des entreprises absentes du Radar s'afficheront ici. Vérifie l'effectif (300 à 3 000) avant de les ajouter."));
+}
+function parseCSV(text){
+  const rows=[];let row=[],f="",q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}
+    else if(ch==='"')q=true;else if(ch===",")(row.push(f),f="");else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&text[i+1]==="\n")i++;row.push(f);rows.push(row);row=[];f=""}else f+=ch}
+  if(f||row.length){row.push(f);rows.push(row)}return rows;
+}
+async function importRelations(e){
+  e.preventDefault();if(!db)return;
+  const member=$("rel-member").value, file=$("rel-file").files[0], msg=$("rel-msg");
+  if(!member||!file)return;
+  msg.textContent="Lecture du fichier…";$("rel-go").disabled=true;
+  try{
+    const rows=parseCSV((await file.text()).replace(/^﻿/,""));
+    const hi=rows.findIndex(r=>r[0]&&r[0].trim().toLowerCase()==="first name");
+    if(hi<0){msg.textContent="Ce fichier ne ressemble pas à Connections.csv : la colonne « First Name » est introuvable.";return}
+    const H=rows[hi].map(x=>x.trim().toLowerCase()),ix=n=>H.indexOf(n);
+    const cF=ix("first name"),cL=ix("last name"),cU=ix("url"),cC=ix("company"),cP=ix("position"),cD=ix("connected on");
+    const out=rows.slice(hi+1).filter(r=>r.length>1&&(r[cF]||r[cL])).map(r=>[r[cF]||"",r[cL]||"",r[cU]||"",r[cC]||"",r[cP]||"",r[cD]||""].map(x=>x.trim().slice(0,200)));
+    msg.textContent="Enregistrement de "+out.length+" relations…";
+    // Replace this member's previous import
+    for(const c of relChunks.filter(c=>c.member===member))await db.doc("relations/"+c.id).delete();
+    const N=900;let n=0;
+    for(let i=0;i<out.length;i+=N){await db.doc("relations/"+member+"-"+(n++)).set({member,rows:out.slice(i,i+N)})}
+    await db.doc("relations_meta/"+member).set({count:out.length,chunks:n,imported_at:new Date().toISOString(),by:me||""});
+    msg.textContent=out.length+" relations importées pour "+member+".";$("f-rel").reset();
+  }catch(x){err(x);msg.textContent="Import interrompu. Réessaie dans un moment."}
+  finally{$("rel-go").disabled=false}
+}
+
+/* ---------- Tableau de la semaine ---------- */
+function weekStart(off=0){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7)+7*off);return d}
+const iso=d=>new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+function renderWeek(){
+  const s0=iso(weekStart(0)),e0=iso(weekStart(1)),s1=iso(weekStart(-1));
+  const end=new Date(weekStart(1)-864e5);
+  $("wk-range").textContent="du "+fmtDate(s0)+" au "+fmtDate(iso(end));
+  const COLS=[["commentaire","Commentaires"],["like","Likes"],["invitation","Invitations"],["message","Messages"],["rep","Réponses"],["call","Appels"]];
+  const crossed=(i,st)=>stIdx(i.stage_to)>=stIdx(st)&&stIdx(i.stage_from||"identifie")<stIdx(st);
+  const tally=(from,to)=>{const m=new Map();
+    for(const i of interactions){if(!i.date||i.date<from||i.date>=to)continue;const k=i.author||"Non attribué";if(!m.has(k))m.set(k,{});const r=m.get(k);
+      const t=i.type==="email"?"message":i.type;if(["commentaire","like","invitation","message"].includes(t))r[t]=(r[t]||0)+1;
+      if(i.stage_to&&crossed(i,"a_repondu"))r.rep=(r.rep||0)+1;if(i.stage_to&&crossed(i,"appel"))r.call=(r.call||0)+1}return m};
+  const cur=tally(s0,e0),prev=tally(s1,s0);
+  const people=[...new Set([...cur.keys(),...prev.keys()])].sort((a,b)=>TEAM.indexOf(a)-TEAM.indexOf(b));
+  if(!people.length){$("week").replaceChildren(el("p",{class:"hint"},"Aucun échange noté cette semaine ni la précédente. Chaque « Noter un échange » alimente ce tableau."));return}
+  const sum=m=>{const t={};for(const r of m.values())for(const[k,v]of Object.entries(r))t[k]=(t[k]||0)+v;return t};
+  const row=(name,c,p,cls)=>el("tr",{class:cls||""},el("td",{},name),...COLS.map(([k])=>el("td",{},String(c[k]||0),el("span",{class:"prev"},"("+(p[k]||0)+")"))));
+  $("week").replaceChildren(el("table",{class:"wk"},el("thead",{},el("tr",{},el("th",{},"Membre"),...COLS.map(([,l])=>el("th",{},l)))),
+    el("tbody",{},...people.map(n=>row(n,cur.get(n)||{},prev.get(n)||{})),row("Total",sum(cur),sum(prev),"tot"))));
+}
+
+function wireCRM(){
+  opts($("rel-member"),[["","Membre"],...TEAM.map(n=>[n,n])],"");
+  $("f-rel").addEventListener("submit",importRelations);
+  $("crm-filter").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("crm-filter").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));crmView=b.dataset.f;renderCRM()});
+  try{crmOwner=localStorage.getItem("crmOwner")||""}catch{}
+  opts($("crm-owner"),[["","Tous les porteurs"],...TEAM.map(n=>[n,n])],crmOwner);
+  $("crm-owner").onchange=e=>{crmOwner=e.target.value;try{localStorage.setItem("crmOwner",crmOwner)}catch{}renderCRM()};
+  $("b-new-contact").onclick=()=>openContact(null);
+  $("f-contact").addEventListener("submit",e=>{saveContact()});
+  $("dc-cancel").onclick=()=>$("dlg-contact").close();
+  $("dc-del").onclick=async()=>{if(editing&&confirm("Supprimer "+editing.name+" et son journal ?")){
+    for(const i of interactions.filter(i=>i.contact_id===editing.id))db.doc("interactions/"+i.id).delete().catch(err);
+    await db.doc("contacts/"+editing.id).delete().catch(err);$("dlg-contact").close()}};
+  $("f-log").addEventListener("submit",e=>{saveLog()});
+  $("dl-cancel").onclick=()=>$("dlg-log").close();
+  // Typing a type that implies a stage moves the stage forward
+  $("dl-type").onchange=()=>{const m={commentaire:"rechauffe",invitation:"rechauffe",message:"contacte",email:"contacte",appel:"appel",reunioscope:"a_repondu"}[$("dl-type").value];
+    if(m&&stIdx(m)>stIdx($("dl-stage").value))$("dl-stage").value=m};
+}
+
+async function resolveNames(){
+  if(!user)return;const ids=[...new Set([...posts,...signals].map(x=>x.owner).filter(Boolean))].filter(i=>!(i in names));
+  if(!ids.length)return;try{const ps=await user.profiles(ids);for(const i of ids)names[i]=(ps[i]&&ps[i].name)||"";renderPosts();renderSignals()}catch{}
+}
+function err(e){console.warn(e);const b=$("offline");b.textContent=e&&e.code==="quota_exceeded"?"La base est pleine : supprime d'anciens posts ou signaux.":"Enregistrement impossible pour l'instant. Réessaie dans un moment.";b.hidden=false}
+async function copy(t,btn){try{await navigator.clipboard.writeText(t);btn.textContent="Copié"}catch{btn.textContent="Sélectionne le texte"}setTimeout(()=>btn.textContent="Copier",1800)}
+
+async function draft(p,btn){
+  btn.disabled=true;btn.textContent="Rédaction…";
+  const prompt=`Tu aides l'équipe de Reuniology (méthode de réuniologie de Louis Vareille : rendre les réunions de direction et de Comex plus utiles et plus courtes) à commenter un post LinkedIn. Écris UN commentaire de 2 à 4 phrases, dans la langue du post, qui apporte une idée concrète ou une question sincère sur le sujet, sans vendre ni citer Reuniology, sans hashtags, sans emoji, ton humain et direct. Réponds uniquement par le commentaire.
+
+Auteur : ${p.author||"inconnu"} (${p.company||""})
+Post :
+${p.text||"(texte non fourni : écris un commentaire générique mais utile sur l'efficacité des réunions)"}`;
+  try{const r=await sample(prompt,{modelTier:"quick"});await db.doc("posts/"+p.id).update({draft:r.text.trim()})}
+  catch(e){btn.disabled=false;btn.textContent=e&&e.code==="rate_limited"?"Trop de demandes, réessaie plus tard":"Brouillon indisponible";return}
+}
+
+function wire(){
+  document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+    for(const t of ["posts","signaux","comptes","suivi"])$("view-"+t).hidden=b.dataset.tab!==t;
+    try{localStorage.setItem("tab",b.dataset.tab)}catch{}
+  });
+  try{const t=localStorage.getItem("tab");if(t==="signaux"||t==="comptes"||t==="suivi")$("tab-"+t).click()}catch{}
+  document.querySelectorAll("[data-period]").forEach(b=>b.onclick=()=>{period=b.dataset.period;document.querySelectorAll("[data-period]").forEach(x=>x.setAttribute("aria-pressed",x===b));renderSearches()});
+  for(const[id,set]of[["post-filter",v=>{postFilter=v;renderPosts()}],["sig-filter",v=>{sigFilter=v;renderSignals()}],["acc-filter",v=>{accFilter=v;renderAccounts()}]])
+    $(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));set(b.dataset.f)});
+  $("f-post").addEventListener("submit",async e=>{e.preventDefault();if(!db)return;
+    const url=safeUrl($("in-url").value.trim());if(!url){$("in-url").focus();return}
+    if(posts.some(p=>p.url===url)){$("in-url").value="";return}
+    await db.collection("posts").add({url,author:$("in-author").value.trim(),company:$("in-company").value.trim(),text:$("in-text").value.trim().slice(0,4000),status:"todo",owner:me||"",addedBy:me||"",createdAt:new Date().toISOString()}).catch(err);
+    e.target.reset();});
+  $("f-search").addEventListener("submit",async e=>{e.preventDefault();if(!db)return;const k=$("in-search").value.trim();if(!k)return;
+    await db.collection("searches").add({k,addedBy:me||"",createdAt:new Date().toISOString()}).catch(err);$("in-search").value=""});
+  $("f-sig").addEventListener("submit",async e=>{e.preventDefault();if(!db)return;
+    await db.collection("signals").add({company:$("sg-company").value.trim(),title:$("sg-title").value.trim(),url:safeUrl($("sg-url").value.trim())||"",strength:$("sg-strength").value,why:$("sg-why").value.trim(),source:"Ajout manuel",status:"new",date:new Date().toISOString(),owner:""}).catch(err);
+    e.target.reset();});
+}
+
+renderSearches();renderPosts();renderSignals();renderAccounts();renderCRM();wire();wireCRM();
+(async()=>{
+  const c=window.claude;if(!c||!c.use){$("offline").hidden=false;return}
+  [db,user,sample]=await Promise.all([c.use("db"),c.use("user"),c.use("sample")]);
+  if(!db){$("offline").hidden=false;renderPosts();renderSignals();return}
+  try{me=user?await user.id():null}catch{}
+  db.collection("posts").orderBy("createdAt","desc").limit(500).onSnapshot(s=>{posts=s.docs.map(d=>({id:d.id,...d.data()}));renderPosts();resolveNames()},err);
+  db.collection("signals").orderBy("date","desc").limit(500).onSnapshot(s=>{signals=s.docs.map(d=>({id:d.id,...d.data()}));renderSignals();renderAccounts();renderCRM();resolveNames()},err);
+  db.collection("accounts").limit(1000).onSnapshot(s=>{accounts=s.docs.map(d=>({id:d.id,...d.data()}));buildRelations();renderAccounts()},err);
+  db.collection("contacts").limit(1000).onSnapshot(s=>{contacts=s.docs.map(d=>({id:d.id,...d.data()}));renderCRM();renderSignals();renderAccounts()},err);
+  db.collection("interactions").orderBy("createdAt","desc").limit(1000).onSnapshot(s=>{interactions=s.docs.map(d=>({id:d.id,...d.data()}));renderCRM()},err);
+  db.collection("relations").limit(200).onSnapshot(s=>{relChunks=s.docs.map(d=>({id:d.id,...d.data()}));buildRelations();renderAccounts()},err);
+  db.collection("relations_meta").limit(50).onSnapshot(s=>{relMeta=s.docs.map(d=>({id:d.id,...d.data()}));renderRelStatus()},err);
+  db.collection("searches").orderBy("createdAt","asc").limit(100).onSnapshot(s=>{teamSearches=s.docs.map(d=>({id:d.id,...d.data()}));renderSearches()},err);
+  renderPosts();renderSignals();
+})();
+</script>
+
+</body>
+</html>
