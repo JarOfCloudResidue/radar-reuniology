@@ -11,8 +11,10 @@ rows = [{"collection": c, "id": i, "data": d} for c, docs in data.items() for i,
 for k in range(0, len(rows), 50):
     req = urllib.request.Request(URL + "/rest/v1/docs?on_conflict=collection,id", method="POST",
                                  data=json.dumps(rows[k:k + 50]).encode())
-    for h, v in {"apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json",
+    for h, v in {"apikey": KEY, "Content-Type": "application/json",
                  "Prefer": "resolution=merge-duplicates"}.items():
         req.add_header(h, v)
+    if KEY.startswith("eyJ"):
+        req.add_header("Authorization", "Bearer " + KEY)
     urllib.request.urlopen(req, timeout=120).read()
 print(len(rows), "documents importés :", {c: len(d) for c, d in data.items()})

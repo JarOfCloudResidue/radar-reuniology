@@ -4,13 +4,20 @@ et ajoute les nouveaux signaux dans la base Supabase. Aucune donnée LinkedIn n'
 Variables d'environnement : SUPABASE_URL, SUPABASE_SERVICE_KEY, et en option DAYS (défaut 3).
 """
 import hashlib, html, json, os, re, sys, time, unicodedata
-import urllib.parse, urllib.request
+import urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
-URL = os.environ["SUPABASE_URL"].rstrip("/")
-KEY = os.environ["SUPABASE_SERVICE_KEY"]
+def fail(msg):
+    print("::error::" + msg)  # visible dans le résumé du run GitHub
+    sys.exit(1)
+
+
+URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+KEY = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+if not URL or not KEY:
+    fail("Secrets manquants : créer SUPABASE_URL et SUPABASE_SERVICE_KEY dans GitHub › Settings › Secrets and variables › Actions.")
 DAYS = int(os.environ.get("DAYS", "3"))
 UA = "Mozilla/5.0 (RadarReuniology; veille presse)"
 
@@ -42,12 +49,16 @@ def api(method, path, body=None, prefer=None):
     req = urllib.request.Request(URL + "/rest/v1/" + path, method=method,
                                  data=json.dumps(body).encode() if body is not None else None)
     req.add_header("apikey", KEY)
-    req.add_header("Authorization", "Bearer " + KEY)
+    if KEY.startswith("eyJ"):  # ancienne clé service_role (JWT) ; les clés sb_secret_ passent par apikey seul
+        req.add_header("Authorization", "Bearer " + KEY)
     req.add_header("Content-Type", "application/json")
     if prefer:
         req.add_header("Prefer", prefer)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        raw = r.read()
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            raw = r.read()
+    except urllib.error.HTTPError as e:
+        fail(f"Supabase a refusé {method} {path.split('?')[0]} : {e.code} {e.read()[:300]!r}")
     return json.loads(raw) if raw else None
 
 
@@ -114,9 +125,9 @@ def main():
         time.sleep(1)
     if new:
         api("POST", "docs?on_conflict=collection,id", new, prefer="resolution=ignore-duplicates")
-    print(f"{len(accounts)} comptes lus, {len(new)} nouveaux signaux, {errors} erreurs de presse.")
+    print(f"::notice::{len(accounts)} comptes lus, {len(new)} nouveaux signaux, {errors} erreurs de presse.")
     if errors > len(accounts) / 2:
-        sys.exit("Trop d'erreurs : Google News a peut-être bloqué les requêtes.")
+        fail("Trop d'erreurs : Google News a peut-être bloqué les requêtes.")
 
 
 if __name__ == "__main__":
