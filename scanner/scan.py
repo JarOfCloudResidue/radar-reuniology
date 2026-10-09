@@ -211,8 +211,17 @@ def main():
                     and str(s["data"].get("date", "")) >= recent]
         old_todo.sort(key=lambda r: str(r["data"].get("date", "")), reverse=True)
         todo += old_todo[:backfill]
-    judged = 0
-    for row in todo:
+    judged, started = 0, time.time()
+    budget = float(os.environ.get("AI_MINUTES", "30")) * 60
+    for n, row in enumerate(todo):
+        if time.time() - started > budget:
+            print(f"::warning::Temps d'IA écoulé : {len(todo) - n} articles restent à qualifier au prochain passage.")
+            break
+        # Sauvegarde au fil de l'eau, pour ne rien perdre si le run s'arrête
+        if n and n % 40 == 0:
+            done = todo[:n]
+            upsert([r for r in done if r in new and (r["data"].get("category") or r["data"].get("ai") or r["data"].get("kind") == "alumni")])
+            upsert([r for r in done if r not in new and r["data"].get("ai")], merge=True)
         d = row["data"]
         acc = acc_by_id.get(d.get("account_id")) or (acc_by_name.get(norm(d.get("company", ""))) or {}).get("data") or {}
         aid = d.get("account_id") or (acc_by_name.get(norm(d.get("company", ""))) or {}).get("id")
@@ -224,7 +233,7 @@ def main():
     new = [r for r in new if r["data"].get("category") or r["data"].get("ai") or r["data"].get("kind") == "alumni"]
     if new:
         upsert(new)
-    old_rows = [r for r in todo if r not in new]
+    old_rows = [r for r in todo if r not in new and r["data"].get("ai")]
     if old_rows:
         upsert(old_rows, merge=True)
 
